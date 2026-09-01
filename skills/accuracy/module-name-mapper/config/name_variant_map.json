@@ -1,0 +1,31 @@
+{
+  "_description": "模块名称变体映射表。key 是原始名称中的片段，value 是规范化的名称。映射顺序很重要——长模式必须在前，短模式在后，避免子串误匹配。用户可以在此文件中添加、修改或删除条目。",
+  "_order_matters": true,
+  "variants": [
+    {"from": "self_attention", "to": "self_attn"},
+    {"from": "self_attn", "to": "attn"},
+    {"from": "word_embeddings", "to": "embed_tokens"},
+    {"from": "embedding.embed_tokens", "to": "embed_tokens"},
+    {"from": "q_layernorm", "to": "q_norm"},
+    {"from": "k_layernorm", "to": "k_norm"},
+    {"from": "post_attention_layernorm", "to": "ffn_norm"},
+    {"from": "final_layernorm", "to": "norm"},
+    {"from": "linear_q_up_proj", "to": "q_b_proj"},
+    {"from": "linear_wq_b", "to": "wq_b"},
+    {"from": "linear_wk", "to": "wk"},
+    {"from": "linear_weights_proj", "to": "weights_proj"},
+    {"from": "linear_fc1", "to": "gate_up_proj"},
+    {"from": "linear_fc2", "to": "down_proj"},
+    {"from": "linear_proj", "to": "o_proj"},
+    {"from": "router", "to": "gate"},
+    {"from": "DSAttention", "to": "mla_attn"},
+    {"from": "core_attention", "to": "attn"},
+    {"from": "input_layernorm", "to": "attn_norm"},
+    {"from": "mlp", "to": "ffn"}
+  ],
+  "framework_prefixes": [
+    "Module.model.",
+    "Module.module.module.",
+    "Module.module."
+  ]
+}
