@@ -2,30 +2,28 @@
 
 感谢你对 MindStudio-Agent（`msagent`）的关注。无论你是修复 Bug、补充文档、新增 Skill，还是扩展 Agent 与框架能力，都欢迎通过 Issue 或 Pull Request 参与共建。
 
-本文档汇总常见贡献路径、开发流程与相关参考文档。更完整的文档导航见 [中文文档首页](../../index.md)。
-
 ## 你可以贡献什么
 
 MindStudio-Agent 是一个面向 Ascend NPU 场景的 Agent 工作台，核心由 CLI、配置系统、MCP 工具、内置 Skills 与领域 Agent 组成。常见贡献类型包括：
 
 | 贡献类型 | 说明 | 推荐阅读 |
 |---|---|---|
-| **问题反馈** | Bug、功能需求、文档错误或体验问题 | [FAQ](../user_guide/faq.md)、[GitCode Issues](https://gitcode.com/Ascend/msagent/issues) |
-| **文档改进** | 安装说明、使用指南、Agent 说明、架构文档 | [入门安装指南](../getting_started/install_guide.md)、[ReadTheDocs 本地验证](readthedocs-local-build.md) |
+| **问题反馈** | Bug、功能需求、文档错误或体验问题 | [FAQ](../support/faq.md)、[GitCode Issues](https://gitcode.com/Ascend/msagent/issues) |
+| **文档改进** | 安装说明、使用指南、Agent 说明、架构文档 | [安装指南](../install_guide/msagent_install_guide.md)、[ReadTheDocs 本地验证](../development_guide/readthedocs-local-build.md) |
 | **Skills 扩展** | 新增或完善领域诊断 SOP、脚本与触发说明 | [配置与扩展](../user_guide/configuration-and-extension.md)、[skills/README.md](../../../skills/README.md) |
 | **Agent / 配置** | 调整 Agent YAML、Prompt、Tool/Skill 过滤规则 | [Agent / Tool / Skill 过滤规则](../user_guide/agent-tool-skill-filter-rules.md) |
-| **框架代码** | CLI、中间件、MCP 集成、配置加载等核心能力 | [架构概览](arch_overview.md) |
-| **测试与构建** | 单元测试、集成测试、wheel 构建验证 | [编译与打包](build-and-package.md) |
+| **框架代码** | CLI、中间件、MCP 集成、配置加载等核心能力 | [架构概览](../development_guide/arch_overview.md) |
+| **测试与构建** | 单元测试、集成测试、wheel 构建验证 | [编译与打包](../development_guide/build-and-package.md) |
 
 当前内置 Agent 及其领域定位如下，贡献前可先了解各自边界：
 
-- [Profiler](../agent_guide/Profiler.md)：性能调优
-- [Accuracy](../agent_guide/Accuracy.md)：精度调优
-- [Quantizer](../agent_guide/Quantizer.md)：模型量化
-- [Modeling](../agent_guide/Modeling.md)：仿真建模
-- [Operator](../agent_guide/Operator.md)：算子调优
-- [Minos](../agent_guide/Minos.md)：文档体验与代码审查
-- [SpecTrainer](../agent_guide/SpecTrainer.md)：投机解码数据重采样
+- [Profiler](../agent_guide/profiler.md)：性能调优
+- [Accuracy](../agent_guide/accuracy.md)：精度调优
+- [Quantizer](../agent_guide/quantizer.md)：模型量化
+- [Modeling](../agent_guide/modeling.md)：仿真建模
+- [Operator](../agent_guide/operator.md)：算子调优
+- [Minos](../agent_guide/minos.md)：文档体验与代码审查
+- [SpecTrainer](../agent_guide/spectrainer.md)：投机解码数据重采样
 
 ## 开始之前
 
@@ -66,7 +64,7 @@ msagent 已内置 [devcontainer](https://containers.dev/) 开发环境配置，�
 - 推荐使用 [uv](https://docs.astral.sh/uv/) 管理依赖
 - 至少准备一个可用的 LLM API Key（用于交互验证）
 
-详细说明见 [入门安装指南](../getting_started/install_guide.md) 与 [版本与兼容性](version-and-compatibility.md)。
+详细说明见 [安装指南](../install_guide/msagent_install_guide.md) 与 [版本与兼容性](../development_guide/version-and-compatibility.md)。
 
 ### 克隆与源码运行
 
@@ -77,11 +75,11 @@ uv sync --dev
 uv run msagent --version
 ```
 
-源码运行时，命令行中的 `msagent` 可替换为 `uv run msagent`。首次启动与模型配置方式见 [快速入门指导](../getting_started/quick_start.md)。
+源码运行时，命令行中的 `msagent` 可替换为 `uv run msagent`。首次启动与模型配置方式见 [快速入门](../quick_start/msagent_quick_start.md)。
 
 ### 建议阅读顺序
 
-1. [架构概览](arch_overview.md)：了解 CLI、Agent Factory、Tools、Skills、MCP 与中间件的分层关系
+1. [架构概览](../development_guide/arch_overview.md)：了解 CLI、Agent Factory、Tools、Skills、MCP 与中间件的分层关系
 2. [配置与扩展](../user_guide/configuration-and-extension.md)：理解全局配置、项目状态、MCP 与 Skills 加载顺序
 3. [Agent / Tool / Skill 过滤规则](../user_guide/agent-tool-skill-filter-rules.md)：修改 Agent 能力边界前必读
 4. 与你改动相关的 Agent 指南或用户指南
@@ -113,7 +111,7 @@ uv run msagent --version
 uv sync --dev
 
 # 运行测试
-uv run pytest -q
+python3 build.py test
 
 # 同步 lockfile 校验（修改 pyproject.toml 后必做）
 uv lock --check
@@ -128,7 +126,7 @@ python3 build.py
 python3 build.py --extra VERIFY_WHEEL_INSTALL=1
 ```
 
-构建细节见 [编译与打包](build-and-package.md)。
+构建细节见 [编译与打包](../development_guide/build-and-package.md)。
 
 ### 4. 代码质量检查
 
@@ -151,7 +149,7 @@ PR 中建议说明：
 - 本地验证方式（测试命令、手动验证步骤）
 - 文档是否已同步更新
 
-文档类 PR 可在本地构建 Sphinx 预览，方法见 [ReadTheDocs 本地验证说明](readthedocs-local-build.md)。
+文档类 PR 可在本地构建 Sphinx 预览，方法见 [ReadTheDocs 本地验证说明](../development_guide/readthedocs-local-build.md)。
 
 ## 按贡献类型的具体指引
 
@@ -159,11 +157,11 @@ PR 中建议说明：
 
 文档统一维护在 `docs/zh/` 下，按快速入门、Agent 指南、用户指南、开发指南组织。修改 README、安装步骤或 Quick Start 时，建议：
 
-1. 对照 [快速入门指导](../getting_started/quick_start.md) 走通最小流程
+1. 对照 [快速入门](../quick_start/msagent_quick_start.md) 走通最小流程
 2. 使用内置 skill [document-ux-review](../user_guide/document-ux-review.md) 做文档上手体验审查
-3. 本地构建文档确认无 ERROR：[ReadTheDocs 本地验证说明](readthedocs-local-build.md)
+3. 本地构建文档确认无 ERROR：[ReadTheDocs 本地验证说明](../development_guide/readthedocs-local-build.md)
 
-常见问题可先查 [FAQ](../user_guide/faq.md)。
+常见问题可先查 [FAQ](../support/faq.md)。
 
 ### Skills 贡献
 
@@ -177,7 +175,7 @@ Skills 是项目最重要的扩展面之一。仓库根目录 `skills/` 为内�
 4. 启动 `msagent` 后通过 `/skills` 验证可见性
 5. 更新 [skills/README.md](../../../skills/README.md) 中的技能列表
 
-详细约定见 [配置与扩展 · 添加自定义 Skill](../user_guide/configuration-and-extension.md#添加自定义-skill) 与 [skills/README.md · 新增 Skill 建议流程](../../../skills/README.md)。
+详细约定见 [配置与扩展 · 添加自定义 Skill](../user_guide/configuration-and-extension.md#9-添加自定义-skill) 与 [skills/README.md · 新增 Skill 建议流程](../../../skills/README.md)。
 
 Skill 匹配与过滤规则见 [Agent / Tool / Skill 过滤规则](../user_guide/agent-tool-skill-filter-rules.md)。
 
@@ -191,31 +189,31 @@ Skill 匹配与过滤规则见 [Agent / Tool / Skill 过滤规则](../user_guide
 
 完整语义与 smoke 示例见 [Agent / Tool / Skill 过滤规则](../user_guide/agent-tool-skill-filter-rules.md) 及 `resources/configs/default/agents/msagent-filter-smoke.yml`。
 
-MCP 接入与字段说明见 [配置与扩展 · MCP 配置](../user_guide/configuration-and-extension.md#mcp-配置)。
+MCP 接入与字段说明见 [配置与扩展 · MCP 配置](../user_guide/configuration-and-extension.md#5-mcp-配置)。
 
 ### 框架代码贡献
 
-框架基于 deepagents 运行时，模块化分为交互层、调度层、核心层与基础设施层。开发前建议阅读 [架构概览](arch_overview.md) 中的：
+框架基于 deepagents 运行时，模块化分为交互层、调度层、核心层与基础设施层。开发前建议阅读 [架构概览](../development_guide/arch_overview.md) 中的：
 
 - 系统架构与核心模块职责
 - 启动流程与 Agent 执行流程
 - 测试设计（测试目录为 `tests/`）
 
-修改依赖或 Python 版本要求时，请同步更新 [版本与兼容性](version-and-compatibility.md) 并在 PR 中说明兼容性影响。
+修改依赖或 Python 版本要求时，请同步更新 [版本与兼容性](../development_guide/version-and-compatibility.md) 并在 PR 中说明兼容性影响。
 
 ### 测试贡献
 
 - 测试目录：`tests/`
-- 运行方式：`uv run pytest -q`
+- 运行方式：`python3 build.py test`
 - 集成测试可使用 `@pytest.mark.integration` 标记
 
 涉及 Agent 行为、配置加载、Tool/Skill 过滤的改动，建议补充或更新对应单元测试。
 
 ## 许可证与社区
 
-- 许可证：[Mulan PSL v2](http://license.coscl.org.cn/MulanPSL2)，详见 [法律与声明](../legal/index.md)
+- 许可证：[Mulan PSL v2](http://license.coscl.org.cn/MulanPSL2)
 - 问题反馈：[GitCode Issues](https://gitcode.com/Ascend/msagent/issues)
-- 在线文档：[ReadTheDocs](https://mindstudio-agent.readthedocs.io/zh-cn/latest/)
+- 在线文档：[ReadTheDocs](https://mindstudio-docs-master.readthedocs.io)
 - 昇腾社区：[MindStudio 软件入口](https://www.hiascend.com/cn/developer/software/mindstudio)
 
 再次感谢你的贡献。无论是修复一行文档、补充一个 Skill，还是改进核心框架，都会帮助更多 Ascend 开发者更快完成调试与调优。

@@ -19,9 +19,7 @@
 
 ## 2. 默认行为
 
-默认 agent 配置位于：
-
-- `resources/configs/default/agents/Profiler.yml`
+默认 agent 配置位于：`resources/configs/default/agents/Profiler.yml`
 
 当前默认配置为：
 
@@ -38,20 +36,25 @@ compression:
 含义如下：
 
 - `auto_compress_enabled: true`
-  - 开启自动压缩
+  
+  开启自动压缩
 - `auto_compress_threshold: 0.8`
-  - 当当前输入上下文接近模型窗口的 80% 时，自动触发压缩
+  
+  当前输入上下文接近模型窗口的 80% 时，自动触发压缩
 - `llm: default`
   - 使用哪个模型来生成摘要；默认复用当前默认模型
 - `prompt`
-  - 生成摘要时使用的提示词模板
+  
+  生成摘要时使用的提示词模板
 
 ## 3. 作为普通用户，怎么使用
 
 这个能力有两种使用方式：
 
 - 自动触发
-- 手动执行 `/offload`
+- 手动触发 `/offload`
+
+### 3.1 自动触发
 
 示例：
 
@@ -75,9 +78,9 @@ msagent
 - 最近消息会保留在活跃上下文里
 - 更早的消息会变成一条摘要消息
 
-### 手动触发 `/offload`
+### 3.2 手动触发 `/offload`
 
-如果你不想等到自动阈值触发，也可以在交互会话中主动执行：
+如果你不想等到自动阈值触发，也可以在交互会话中主动触发：
 
 ```text
 /offload
@@ -181,13 +184,17 @@ compression:
 字段说明：
 
 - `auto_compress_threshold`
-  - 越小越早压缩；例如 `0.7` 表示上下文使用到 70% 就触发
+  
+  越小越早压缩；例如 `0.7` 表示上下文使用到 70% 就触发
 - `messages_to_keep`
-  - 压缩时保留最近多少条非 system 消息不做总结
+  
+  压缩时保留最近多少条非 system 消息不做总结
 - `llm`
-  - 可以替换成更便宜或更快的总结模型
+  
+  可以替换成更便宜或更快的总结模型
 - `prompt`
-  - 可以自定义摘要风格，例如更偏“事实记录”或“任务进度记录”
+  
+  可以自定义摘要风格，例如更偏“事实记录”或“任务进度记录”
 
 建议：
 
@@ -208,7 +215,7 @@ compression:
 
 你可以从三个地方确认：
 
-### 终端提示
+### 8.1 终端提示
 
 当达到阈值时，会看到自动压缩提示和压缩结果摘要。
 
@@ -219,7 +226,7 @@ compression:
 - 压缩前后 token 变化
 - 历史消息保存到了哪个路径
 
-### 会话历史文件
+### 8.2 会话历史文件
 
 检查：
 
@@ -229,7 +236,7 @@ compression:
 
 是否已经生成当前 `thread_id` 对应的 `.md` 文件。
 
-### checkpoint 数据
+### 8.3 checkpoint 数据
 
 如果你在排查内部状态，可以查看当前 thread 对应 checkpoint 中是否已有 `_summarization_event`。
 
@@ -237,7 +244,7 @@ compression:
 
 如果你觉得没有触发压缩，可以依次检查：
 
-### 1) 当前 agent 是否启用了 compression
+### 9.1 当前 agent 是否启用了 compression
 
 检查 agent 配置里是否有：
 
@@ -246,15 +253,15 @@ compression:
   auto_compress_enabled: true
 ```
 
-### 2) 当前模型是否配置了 `context_window`
+### 9.2 当前模型是否配置了 `context_window`
 
 自动压缩依赖上下文窗口大小来计算阈值。如果模型上下文窗口为空，自动判断可能不会触发。
 
-### 3) 当前对话是否真的达到阈值
+### 9.3 当前对话是否真的达到阈值
 
 如果对话还不够长，压缩不会发生。
 
-### 4) `MSAGENT_HOME` 下的项目状态目录是否可写
+### 9.4 `MSAGENT_HOME` 下的项目状态目录是否可写
 
 如果历史文件写入失败，摘要仍可能生成，但原始消息不会成功落盘。此时终端会出现 warning。
 
@@ -263,18 +270,23 @@ compression:
 当前实现的主要入口如下：
 
 - `src/msagent/cli/handlers/compress.py`
-  - 当前 CLI 压缩入口
+  
+  当前 CLI 压缩入口
 - `src/msagent/utils/offload.py`
-  - 摘要生成、原始消息卸载、摘要事件构造
+  
+  摘要生成、原始消息卸载、摘要事件构造
 - `src/msagent/agents/factory.py`
-  - 为 graph 暴露 `_agent_backend`，并把 `conversation_history` 路由到持久目录
+  
+  为 graph 暴露 `_agent_backend`，并把 `conversation_history` 路由到持久目录
 
 当前设计有两个关键点：
 
 - 压缩是 in-place 的
-  - 不再新建 thread，而是在当前 thread 上更新 `_summarization_event`
+  
+  不再新建 thread，而是在当前 thread 上更新 `_summarization_event`
 - 原始历史是可恢复的
-  - 通过 `conversation_history/<thread_id>.md` 形成按时间追加的卸载日志
+  
+  通过 `conversation_history/<thread_id>.md` 形成按时间追加的卸载日志
 
 如果后续要继续增强，比较自然的方向有：
 

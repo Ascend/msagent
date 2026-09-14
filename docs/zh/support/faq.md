@@ -19,7 +19,7 @@
 
 内置 Agent / SubAgent 定义和 Prompt 默认由安装包直接提供，不会在首次启动时复制到这里。当前 workspace 选择的 Agent 和 Model 记录在对应项目的 `project.json` 中。
 
-更完整的目录说明见 [配置与扩展](configuration-and-extension.md)。
+更完整的目录说明见 [配置与扩展](../user_guide/configuration-and-extension.md)。
 
 ## 2. 如何打开或关闭 MCP 服务？
 
@@ -28,7 +28,7 @@
 - 在会话里通过 `/mcp` 查看和切换已配置的 MCP 服务
 - 直接编辑 `~/.msagent/config/config.mcp.json`
 
-默认模板会启用 `msprof-mcp`。如果你要接入新的本地或远程 MCP 服务，建议先参考 [配置与扩展](configuration-and-extension.md) 里的字段说明。
+默认模板会启用 `msprof-mcp`。如果你要接入新的本地或远程 MCP 服务，建议先参考 [配置与扩展](../user_guide/configuration-and-extension.md) 里的字段说明。
 
 ## 3. 如何确认 Skill 是否被识别到了？
 
@@ -57,7 +57,7 @@
 - 当前 Agent 的 `skills.patterns` 是否允许该 Skill
 - 是否被更高优先级目录中的同名 Skill 覆盖
 
-加载自定义 Skill，可参考[添加自定义 Skill](configuration-and-extension.md#添加自定义-skill)
+加载自定义 Skill，可参考[添加自定义 Skill](../user_guide/configuration-and-extension.md#9-添加自定义-skill)
 
 ## 4. 运行日志在哪里看？
 

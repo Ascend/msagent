@@ -18,7 +18,7 @@ msAgent 中的 Skills 实现遵循 Agent Skills 的通用约定，能在不同 a
 适用于 Trae、opencode 等支持 `npx skills` 工作流的 agent。一行命令即可安装：
 
 ```bash
-git clone https://gitcode.com/Ascend/msagent.git
+git clone https://gitcode.com/Ascend/msagent.git -b master
 cd msagent/skills
 
 # 安装单个 Skill
@@ -36,7 +36,7 @@ npx skills add . --all -a trae
 不依赖 `npx`，适用于任意 agent。克隆仓库后将目标 Skill 目录拷贝到 agent 的 skills 扫描路径下：
 
 ```bash
-git clone https://gitcode.com/Ascend/msagent.git
+git clone https://gitcode.com/Ascend/msagent.git -b master
 
 # opencode
 cp -r msagent/skills/profiler/ascend-profiler-db-explorer ~/.config/opencode/skills/
@@ -104,7 +104,7 @@ msprof-mcp
 
 以下演示如何将 Skill + MCP 组合接入 Trae IDE，从零开始完成一次 Ascend 集群快慢卡诊断。
 
-### Step 1：安装 Skills
+### 4.1 安装 Skills
 
 克隆仓库后，将 msagent/skills/ 中的 Skill 复制到 Trae IDE 的 Skill 目录中：
 
@@ -115,7 +115,7 @@ msprof-mcp
 
 ![trae-skills](../figures/trae-skills.png)
 
-### Step 2：配置 MCP Server
+### 4.2 配置 MCP Server
 
 在 Trae IDE 中进入 `设置 → MCP` 中，点击 `添加 → 手动配置`，填入以下信息：
 
@@ -136,11 +136,11 @@ msprof-mcp
 
 ![trae-mcp-load](../figures/trae-mcp-load.png)
 
-### Step 3：安装 msprof-analyze
+### 4.3 安装 msprof-analyze
 
 部分 Skill 依赖 msprof-analyze 工具，需在 Trae IDE 沙箱环境中安装。直接向 Agent 下达 pip install msprof-analyze 指令即可，Agent 会自动完成安装并反馈结果。
 
-### Step 4：开始使用
+### 4.4 开始使用
 
 配置完成后，即可在对话中直接调用 Profiling 分析 Skill 与 msprof-mcp 工具。示例触发语：
 
