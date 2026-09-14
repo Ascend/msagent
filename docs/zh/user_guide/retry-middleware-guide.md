@@ -5,7 +5,7 @@
 - `init_chat_model(max_retries, timeout)`
 - `ToolRetryMiddleware(max_retries, tools, on_failure, backoff_factor, initial_delay, max_delay, jitter)`
 
-## 对应的 YAML 配置
+## 1. 对应的 YAML 配置
 
 ```yaml
 retry:
@@ -26,9 +26,9 @@ retry:
     jitter: true
 ```
 
-## 常见配置建议
+## 2. 常见配置建议
 
-### 网络不稳定
+### 2.1 网络不稳定
 
 ```yaml
 retry:
@@ -49,7 +49,7 @@ retry:
     jitter: true
 ```
 
-### 只保留 LLM 重试
+### 2.2 只保留 LLM 重试
 
 ```yaml
 retry:
@@ -63,14 +63,14 @@ retry:
     max_retries: 0
 ```
 
-### 完全关闭重试覆盖
+### 2.3 完全关闭重试覆盖
 
 ```yaml
 retry:
   enabled: false
 ```
 
-## 注意事项
+## 3. 注意事项
 
 - `retry.model.timeout` 为 `null` 时，使用 LLM 自身配置超时。
 - `retry.enabled=false` 时，不挂载 `ToolRetryMiddleware`，且模型重试数置为 `0`。

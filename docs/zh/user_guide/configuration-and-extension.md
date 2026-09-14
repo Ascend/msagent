@@ -2,7 +2,7 @@
 
 本文档汇总 `msAgent` 当前代码实现中的全局配置、项目状态、MCP 扩展和 Skills 扩展方式。
 
-## 全局配置目录
+## 1. 全局配置目录
 
 `msAgent` 将用户配置统一保存在 `MSAGENT_HOME`。未设置该环境变量时，默认目录为：
 
@@ -14,7 +14,7 @@
 
 现阶段不会自动导入已有的 `<working-dir>/.msagent/`，请先保留旧目录，等待后续迁移功能。
 
-## 默认模板与运行时文件
+## 2. 默认模板与运行时文件
 
 默认模板中的主要内容如下：
 
@@ -45,7 +45,7 @@
 | `~/.msagent/oauth/mcp/` | 全局 MCP OAuth 数据。 |
 | `~/.msagent/logs/` | 全局日志目录。 |
 
-## 项目长期记忆
+## 3. 项目长期记忆
 
 `~/.msagent/state/projects/<project-id>/memory.md` 用于保存当前项目的长期记忆。可以在交互式会话中使用以下命令维护：
 
@@ -58,7 +58,7 @@
 
 长期记忆适合保存稳定信息，不建议写入 API Key、密码、令牌等敏感数据。
 
-## 配置读取方式
+## 4. 配置读取方式
 
 当前实现支持“单文件配置”和“目录配置”两种方式并存：
 
@@ -74,7 +74,7 @@
 
 只有高级扩展或显式修改 Agent 字段时才会生成 `config/agents/*.yml`。生成文件采用字段级最小覆盖，未出现的字段继续继承安装包默认定义。
 
-## MCP 配置
+## 5. MCP 配置
 
 内置 MCP 定义来自安装包中的 `resources/configs/default/config.mcp.json`，用户文件按 server name 覆盖内置定义。以下是一个本地 stdio 服务示例：
 
@@ -133,7 +133,7 @@
 - 用 `/mcp` 在会话中切换已有 MCP 服务的启用状态
 - 直接编辑 `~/.msagent/config/config.mcp.json` 来新增、删除或调整服务定义
 
-## Skills 扩展
+## 6. Skills 扩展
 
 当前 Skills 会按以下顺序扫描：
 
@@ -147,7 +147,7 @@
 2. 全局用户 Skills
 3. 内置 Skills
 
-## Skill 目录结构
+## 7. Skill 目录结构
 
 支持以下两种目录结构：
 
@@ -173,7 +173,7 @@ description: 这个技能做什么
 ---
 ```
 
-## 源码运行时的内置 Skills
+## 8. 源码运行时的内置 Skills
 
 内置 Skills 已直接合入 `msagent` 主仓库，源码运行时默认使用仓库根目录：
 
@@ -191,7 +191,7 @@ resources/configs/default/skills/
 
 (custom-skill-guide)=
 
-## 添加自定义 Skill
+## 9. 添加自定义 Skill
 
 如果你希望在当前项目里扩展一个新的 Skill，推荐直接放在仓库根目录：
 
@@ -212,10 +212,10 @@ skills/
 
 这时：
 
-- `profiling` 是分类
+- `profiler` 是分类
 - `my-skill` 是 skill 名称
 
-### 编写 `SKILL.md`
+### 9.1 编写 `SKILL.md`
 
 最小示例：
 
@@ -245,7 +245,7 @@ description: 用于处理某类固定任务的自定义 skill
 - `description` 建议填写，便于在 `/skills` 中识别
 - 如果需要脚本或模板，可以继续放在 skill 目录下，例如 `scripts/`、`templates/`
 
-### 让 Agent 能看到它
+### 9.2 让 Agent 能看到它
 
 只创建文件还不够，当前 agent 还需要在配置里放开这个 skill。
 
@@ -275,7 +275,7 @@ skills:
 
 这部分更完整的匹配语义，可参考 [Agent / Tool / Skill 过滤规则](agent-tool-skill-filter-rules.md)。
 
-### 验证是否生效
+### 9.3 验证是否生效
 
 启动 `msagent` 后，可以这样检查：
 
@@ -297,9 +297,9 @@ skills:
 
 (custom-skill-faq)=
 
-## Skill 常见问题
+## 10. Skill 常见问题
 
-### `/skills` 看不到新 Skill
+### 10.1 `/skills` 看不到新 Skill
 
 通常优先检查这几项：
 
@@ -307,7 +307,7 @@ skills:
 - 当前 agent 是否配置了对应的 `skills.patterns`
 - 是否被更高优先级目录中的同名 skill 覆盖
 
-### Skill 明明存在，但 Agent 不会自动使用
+### 10.2 Skill 存在，但 Agent 不会自动使用
 
 这通常是以下原因之一：
 

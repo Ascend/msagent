@@ -710,7 +710,7 @@ msprof_mcp/
 - MCP 官方文档: [https://modelcontextprotocol.io/docs/getting-started/intro](https://modelcontextprotocol.io/docs/getting-started/intro)
 - Perfetto 官方文档: [https://perfetto.dev/docs/](https://perfetto.dev/docs/)
 - PerfettoSQL 语法: [https://perfetto.dev/docs/analysis/perfetto-sql-syntax](https://perfetto.dev/docs/analysis/perfetto-sql-syntax)
-- msAgent 设计文档: [docs/zh/design/msagent_design.md](msagent_design.md)
+- msAgent 设计文档: [docs/zh/development_guide/design/msagent_design.md](msagent_design.md)
 
 ### 2. 术语说明
 

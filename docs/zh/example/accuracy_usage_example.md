@@ -1,6 +1,6 @@
 # Accuracy 使用示例
 
-## 1、获取分析报告
+## 1. 获取分析报告
 
 dump了某模型训练和推理的数据，接下来用msAgent进行分析。
 
@@ -26,13 +26,13 @@ Agent：更新结果。
 
 <img src="../figures/accuracy_usage_example_2.png" width="1577" title="" crop="0,0,1,1" id="ueffb9a2d" class="ne-image">
 
-## 2、查看分析报告中的分析逻辑和依据
+## 2. 查看分析报告中的分析逻辑和依据
 
-### 2.1 Agent分析报告内容(部分)
+### 2.1 Agent分析报告内容（部分）
 
 ---
 
-#### 数值验证
+**数值验证**
 
 使用正确输出索引(output.1)对比结果:
 
@@ -45,7 +45,7 @@ Agent：更新结果。
 | 20 | 1767.31 | 1760.00 | 0.41% | ✓ 对齐 |
 | 23 | 538.36 | 684.00 | 27.05% | ✗ 异常 |
 
-#### 首尾层异常分析
+**首尾层异常分析**
 
 + Layer 0: 推理端 output.0=55.0 接近训练端 55.09，但 output.1=5.12 异常低
 
@@ -61,13 +61,13 @@ Agent：更新结果。
 <img src="../figures/accuracy_usage_example_3.png" width="1577" title="" crop="0,0,1,1" id="ueffb9a2d" class="ne-image">
 <img src="../figures/accuracy_usage_example_4.png" width="1577" title="" crop="0,0,1,1" id="ueffb9a2d" class="ne-image">
 
-1、Layer1、Layer23如果打开来看子模块，则结果能对上；
+1. Layer1、Layer23如果打开来看子模块，则结果能对上；
 
-2、训练的Layer层父模块的output和子模块最后一层（Qwen2MLP）的output不是相同值，而推理的是相同值。
+2. 训练的Layer层父模块的output和子模块最后一层（Qwen2MLP）的output不是相同值，而推理的是相同值。
 
 **故人工复核的结论是：训推结果基本一致。**
 
-## 3、进一步研讨，搞清楚原理，和Agent结果对齐
+## 3. 进一步研讨，搞清楚原理，和Agent结果对齐
 
 将上述的人工复核结论反馈给Agent，进行进一步研讨，搞清楚现象的原因
 
@@ -79,9 +79,9 @@ Agent：
 
 这是一个关于 模块层级输出关系 的重要问题。让我解释可能的原因：
 
-  关键理解：DecoderLayer 的输出 ≠ MLP 的输出
+关键理解：DecoderLayer 的输出 ≠ MLP 的输出
 
-  Qwen2DecoderLayer 的典型结构：
+Qwen2DecoderLayer 的典型结构：
 
 ```plain
   def forward(self, hidden_states, ...):
@@ -102,17 +102,17 @@ Agent：
 
   核心点：
 
-   • DecoderLayer.output = residual + mlp.output（经过 residual connection）
+- DecoderLayer.output = residual + mlp.output（经过 residual connection）
 
-   • 不是直接等于 mlp.output
+- 不是直接等于 mlp.output
 
 ---
 
 **训练侧的Layer是单输入单输出（直接输出hidden_states），而推理侧的为多输入多输出。具体的，推理侧的input0是位置编码，input1和input2是上一层的residual和mlp.output，输出则是residual和mlp.output。** 这就解释了：
 
-1、训推子模块能对上，因为都是mlp.output；
+1. 训推子模块能对上，因为都是mlp.output；
 
-2、训推父模块对不上，因为一个是单输出residual + mlp.output，一个是双输出residual，mlp.output。
+2. 训推父模块对不上，因为一个是单输出residual + mlp.output，一个是双输出residual，mlp.output。
 
 人：把上述结论反馈给Agent
 
@@ -122,8 +122,8 @@ Agent：
 
 好，这下对齐了。
 
-## 4、总结
+## 4. 总结
 
-1、在这个案例中，Qwen2模型的训推实现有明显区别（子模块、算子存在融合），但整体模块结构可以大致对上，在提供construct信息后，Agent可以大致对齐层。
+1. 在这个案例中，Qwen2模型的训推实现有明显区别（子模块、算子存在融合），但整体模块结构可以大致对上，在提供construct信息后，Agent可以大致对齐层。
 
-2、但训推的层的输入输出数量、走向也存在明显区别，此时Agent做了基本情况的遍历验证，但对于特殊情况应对不足（Layer1/23的输出方式），在进行人工引导后Agent判断正确。
+2. 但训推的层的输入输出数量、走向也存在明显区别，此时Agent做了基本情况的遍历验证，但对于特殊情况应对不足（Layer1/23的输出方式），在进行人工引导后Agent判断正确。

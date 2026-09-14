@@ -4,17 +4,17 @@
 
 ## 1. 环境准备
 
-一键安装（推荐）：
+安装msAgent，这里使用一键安装。
 
 ```shell
-# Linux / macOS / WSL
+# 适用操作系统：Linux、macOS、WSL
 curl -LsSf https://raw.gitcode.com/Ascend/msagent/raw/master/scripts/install.sh | bash
 
-# Windows（PowerShell 5.1+）
+# 适用操作系统：Windows（PowerShell 5.1+）
 irm https://raw.gitcode.com/Ascend/msagent/raw/master/scripts/install.ps1 | iex
 ```
 
-更多安装方式，具体请参见《[msAgent安装指南](./install_guide.md)》。
+更多安装方式，具体请参见《[msAgent安装指南](../install_guide/msagent_install_guide.md)》。
 
 ## 2. 配置 LLM
 
@@ -48,25 +48,13 @@ irm https://raw.gitcode.com/Ascend/msagent/raw/master/scripts/install.ps1 | iex
 
 ## 3. 启动会话
 
-- 启动并进入默认交互式会话。
+启动并进入默认交互式会话。
 
-  ```bash
-  msagent
-  ```
+```bash
+msagent
+```
 
-- 也可以在启动时指定Agent，示例如下：
-
-  | Agent | 说明 | 启动命令 |
-  | --- | --- | --- |
-  | [Profiler](../agent_guide/Profiler.md) | 性能调优 | `msagent --agent Profiler` |
-  | [Accuracy](../agent_guide/Accuracy.md) | 精度调试 | `msagent --agent Accuracy` |
-  | [Quantizer](../agent_guide/Quantizer.md) | 模型量化 | `msagent --agent Quantizer` |
-  | [Modeling](../agent_guide/Modeling.md) | 仿真建模与自动寻优 | `msagent --agent Modeling` |
-  | [Operator](../agent_guide/Operator.md) | 算子调优 | `msagent --agent Operator` |
-  | [Minos](../agent_guide/Minos.md) | 文档辅助 | `msagent --agent Minos` |
-  | [SpecTrainer](../agent_guide/SpecTrainer.md) | 投机解码数据重采样 | `msagent --agent SpecTrainer` |
-
-- 更多命令请参见《[msAgent使用指南](../user_guide/usemap.md)》。
+更多命令请参见《[msAgent使用指南](../user_guide/usemap.md)》。
 
 ## 4. 使用技巧
 

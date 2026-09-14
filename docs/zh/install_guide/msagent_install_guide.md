@@ -4,9 +4,9 @@
 
 本文面向第一次使用 MindStudio-Agent 的用户，帮助您完成 msAgent 安装。
 
-推荐使用**一键安装**（[3.1 一键安装（推荐）](#31-一键安装推荐)）：自动安装 `mindstudio-agent` 最新版本，不与现有环境冲突。
+推荐使用[一键安装](#31-一键安装)：自动安装 `mindstudio-agent` 最新版本，不与现有环境冲突。
 
-同时支持 [pip 安装（备选）](#32-pip-安装备选)与[源码安装](#33-源码安装)两种方式。
+同时支持[pip 安装](#32-pip-安装)与[源码安装](#33-源码安装)两种方式。
 
 ## 2. 环境要求
 
@@ -16,11 +16,11 @@
 
   用于满足 `msprof-mcp` 中 `trace_processor` 二进制依赖（建议操作系统：`Ubuntu >= 21.10`、`openEuler >= 21.09`，其他操作系统请自行查询）
 
-- 使用本工具前需要安装CANN，具体操作请参见《[CANN 快速安装](https://www.hiascend.com/cann/download)》安装昇腾NPU驱动和CANN软件（包含Toolkit和ops包），并配置环境变量。
+- 使用本工具前需要安装CANN，具体操作请参见《[CANN 快速安装](https://www.hiascend.com/zh/cann/download)》安装昇腾NPU驱动和CANN软件（包含Toolkit和ops包），并配置环境变量。
 
 ## 3. 安装方式
 
-### 3.1 一键安装（推荐）
+### 3.1 一键安装
 
 安装器默认使用国内镜像（安装快）；若镜像尚未同步最新版本，会自动改用官方 PyPI 获取最新版。
 
@@ -54,7 +54,7 @@ msagent --version
 
 > 提示：如需强制指定某个源，可设置 `MSAGENT_INDEX=<index>`。
 
-### 3.2 pip 安装（备选）
+### 3.2 pip 安装
 
 ```shell
 python3 -m venv ~/.msagent-venv
@@ -88,7 +88,7 @@ uv tool install -U --python 3.11 mindstudio-agent
 
    ```bash
    cd ~
-   git clone https://gitcode.com/Ascend/msagent.git
+   git clone https://gitcode.com/Ascend/msagent.git -b master
    ```
 
 2. 保持在 `ctr_in.py` 打开的同一个交互式容器 Shell 中，在仓库根目录执行以下命令，自动完成依赖下载与构建：

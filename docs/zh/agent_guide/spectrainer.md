@@ -4,20 +4,20 @@
 
 > **与开源 speculators 的关系**：本 Agent 技能的 `scripts/` 是**开源 speculators 仓脚本的编排封装**（仅做参数组装与调用，不修改上游源码）。版本基线为 **speculators v0.6.0**（[vllm-project/speculators](https://github.com/vllm-project/speculators)）。若上游脚本接口有变更，需同步更新封装脚本的调用参数。
 
-## Agent 定位
+## 1. Agent 定位
 
 - 只做**数据重采样/重生成**这一段：不负责拉起 verifier 服务，不做训练，也不做接受率/精度验收
 - 输入可以是原始多轮对话 jsonl，也可以是已符合重生成格式的 jsonl
 - 关键决策（endpoint、数据、条数/并发/采样参数、输出目录）会先与你确认，不擅自占资源
 
-## 核心能力
+## 2. 核心能力
 
 - **预检**：对原始多轮对话做 DFX 预检，按 high / medium / low 分级上报（高危先停下与你确认）
 - **归一化**：把原始对话转成重生成所需格式 `{id, conversations:[{from,value}]}`
 - **重生成**：转发给 speculators 仓的 `response_regeneration` 脚本，用 verifier 服务逐轮重生成 assistant 回答（on-policy）
 - **交付**：预分词 jsonl（每行 `id` / `primary_id` / `input_ids` / `loss_mask` / `text`）+ 错误行文件 + ok/errors/truncated 统计
 
-## 上手使用
+## 3. 上手使用
 
 **只需用自然语言说出目标**，`path/to/…` 换成你机器上的实际路径，例如：
 
@@ -39,7 +39,7 @@
 | 采样参数 | 可选，如 `temperature` 等 JSON 片段 | 不给则用上游默认 |
 | 输出目录 | 产物与日志统一存放位置 | 问你要 |
 
-## 流程是怎样的
+## 4. 流程是怎样的
 
 1. **对齐**：Agent 复述你的 endpoint / 数据 / 条数 / 输出目录；缺的问、错的改；
 2. **预检**（原始对话数据时）：DFX 预检并出报告，high 风险先停下与你确认；
@@ -50,7 +50,7 @@
 
 你只需在数据风险与参数确认等关键节点拍板；其余由 Agent 执行并汇报每步产物路径。
 
-## 需要提前准备
+## 5. 需要提前准备
 
 - Ascend 推理环境与可用 NPU（**服务由你自己拉起**）；
 - speculators 代码仓（v0.6.0，重生成脚本来自该仓）；
@@ -58,14 +58,14 @@
 - 待处理的多轮对话数据；
 - 缺任何一项，Agent 会在动手前提示你补齐。
 
-## 交付物
+## 6. 交付物
 
 - 预分词样本 jsonl（`input_ids` / `loss_mask`，可直接进训练）；
 - 错误行文件（如 `<outfile>.errors.jsonl`）与日志；
 - 若做了预检：DFX 预检报告与分级结论；
 - 执行参数与统计（endpoint、条数、并发、ok/errors/truncated）。
 
-## 使用注意
+## 7. 注意事项
 
 - 服务未通过 `return_token_ids` 验证前，Agent 不会执行重生成；
 - 不代你拉起服务、不擅自占卡；大批量任务会后台化轮询，日志无进展并不代表卡死；
