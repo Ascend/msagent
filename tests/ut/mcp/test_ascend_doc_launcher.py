@@ -11,6 +11,20 @@ import pytest
 
 from msagent.mcp.launchers import ascend_doc_mcp
 
+# Captured before the autouse fixture replaces it, for the test that verifies
+# the real "what is this machine's npm configured with" helper.
+_REAL_CONFIGURED_NPM_REGISTRY = ascend_doc_mcp._configured_npm_registry
+
+
+@pytest.fixture(autouse=True)
+def _offline_npm_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the registry-probing tests offline.
+
+    select_registry() consults the registry npm itself is configured with; the
+    real helper would spawn the machine's npm. Tests opt back in explicitly.
+    """
+    monkeypatch.setattr(ascend_doc_mcp, "_configured_npm_registry", lambda: None)
+
 
 def test_registry_candidates_prefer_user_registry_and_support_only(
     monkeypatch: pytest.MonkeyPatch,
@@ -30,6 +44,7 @@ def test_registry_candidates_include_default_fallbacks(
     assert ascend_doc_mcp._registry_candidates() == [
         "https://npm.example.com",
         "https://registry.npmmirror.com",
+        "https://mirrors.huaweicloud.com/repository/npm",
         "https://registry.npmjs.org",
     ]
 
@@ -44,40 +59,101 @@ def test_select_registry_requires_explicit_registry_in_only_mode(
         ascend_doc_mcp.select_registry()
 
 
+def _metadata_response(payload, *, status_code: int = 200):
+    """Minimal httpx.Response stand-in for the registry metadata probe."""
+
+    class _Response:
+        def __init__(self) -> None:
+            self.status_code = status_code
+            self._payload = payload
+
+        def raise_for_status(self) -> None:
+            if self.status_code >= 400:
+                raise ascend_doc_mcp.httpx.HTTPStatusError(
+                    f"HTTP {self.status_code}",
+                    request=ascend_doc_mcp.httpx.Request("GET", "https://example.invalid"),
+                    response=None,  # type: ignore[arg-type]
+                )
+
+        def json(self):
+            if isinstance(self._payload, str):
+                raise ValueError("not json")
+            return self._payload
+
+    return _Response()
+
+
+def _fake_registry_http(monkeypatch: pytest.MonkeyPatch, *, blocked: tuple[str, ...], served: dict) -> list[str]:
+    """Monkeypatch httpx.get with per-registry reachability; returns probed URLs."""
+    urls: list[str] = []
+
+    def fake_get(url, **_kwargs):
+        urls.append(url)
+        if any(host in url for host in blocked):
+            raise ascend_doc_mcp.httpx.ConnectError("blocked", request=None)  # type: ignore[arg-type]
+        return _metadata_response(served)
+
+    monkeypatch.setattr(ascend_doc_mcp.httpx, "get", fake_get)
+    return urls
+
+
 def test_select_registry_probes_package_metadata_and_falls_back(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls: list[list[str]] = []
-
-    def fake_run(command, **kwargs):
-        calls.append(command)
-        if "https://registry.npmmirror.com" in command:
-            return SimpleNamespace(returncode=1, stdout="", stderr="unreachable")
-        return SimpleNamespace(returncode=0, stdout='"1.2.3"\n', stderr="")
-
-    monkeypatch.setattr(ascend_doc_mcp.subprocess, "run", fake_run)
+    urls = _fake_registry_http(
+        monkeypatch,
+        blocked=("registry.npmmirror.com", "mirrors.huaweicloud.com/repository/npm"),
+        served={"version": "1.2.3"},
+    )
 
     selection = ascend_doc_mcp.select_registry(version="1.2.3")
 
     assert selection.registry == "https://registry.npmjs.org"
-    assert calls[0] == [
-        ascend_doc_mcp._tool_command("npm"),
-        "view",
-        "@opencxd/ascend-doc-mcp@1.2.3",
-        "version",
-        "--registry",
-        "https://registry.npmmirror.com",
-        "--json",
+    assert urls == [
+        "https://registry.npmmirror.com/@opencxd%2Fascend-doc-mcp/1.2.3",
+        "https://mirrors.huaweicloud.com/repository/npm/@opencxd%2Fascend-doc-mcp/1.2.3",
+        "https://registry.npmjs.org/@opencxd%2Fascend-doc-mcp/1.2.3",
     ]
+
+
+def test_probe_registry_needs_no_node_toolchain(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Registry selection is plain HTTP: a broken npm must not break it."""
+    urls = _fake_registry_http(monkeypatch, blocked=(), served={"version": "1.2.3"})
+
+    def fail_run(*_args, **_kwargs):
+        raise AssertionError("registry probing must not spawn npm/node")
+
+    monkeypatch.setattr(ascend_doc_mcp.subprocess, "run", fail_run)
+
+    assert ascend_doc_mcp._probe_registry("https://registry.npmjs.org", version="1.2.3") == "1.2.3"
+    assert urls == ["https://registry.npmjs.org/@opencxd%2Fascend-doc-mcp/1.2.3"]
+
+
+def test_select_registry_uses_the_huaweicloud_mirror_in_an_intranet(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only the Huawei Cloud npm mirror is reachable (corporate intranet)."""
+    _fake_registry_http(
+        monkeypatch,
+        blocked=("registry.npmmirror.com", "registry.npmjs.org"),
+        served={"version": "1.2.3"},
+    )
+
+    selection = ascend_doc_mcp.select_registry(version="1.2.3")
+
+    assert selection.registry == "https://mirrors.huaweicloud.com/repository/npm"
+    assert selection.diagnostics[0].startswith("https://registry.npmmirror.com: ")
 
 
 def test_select_registry_rejects_invalid_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        ascend_doc_mcp.subprocess,
-        "run",
-        lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stdout="not-json", stderr=""),
+        ascend_doc_mcp.httpx,
+        "get",
+        lambda *_args, **_kwargs: _metadata_response({"name": "@opencxd/ascend-doc-mcp"}),
     )
 
     with pytest.raises(RuntimeError, match="Unable to resolve"):
@@ -95,6 +171,92 @@ def test_build_npx_command_uses_registry_and_fixed_version() -> None:
         "https://registry.npmmirror.com",
         "@opencxd/ascend-doc-mcp@1.2.3",
     ]
+
+
+def test_configured_npm_registry_ignores_public_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A machine pointed at a public default must not change the probe chain."""
+    monkeypatch.setattr(ascend_doc_mcp, "_configured_npm_registry", _REAL_CONFIGURED_NPM_REGISTRY)
+    monkeypatch.setattr(ascend_doc_mcp, "_resolve_tool", lambda _command: "npm")
+    for value in ("https://registry.npmjs.org/", "https://registry.npmmirror.com", "undefined", ""):
+        monkeypatch.setattr(
+            ascend_doc_mcp.subprocess,
+            "run",
+            lambda *_args, _value=value, **_kwargs: SimpleNamespace(returncode=0, stdout=_value + "\n", stderr=""),
+        )
+        assert ascend_doc_mcp._configured_npm_registry() is None
+
+
+def test_select_registry_prefers_the_machines_configured_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Intranet: npm already points at the internal mirror, so use it first."""
+    monkeypatch.delenv("MSAGENT_NPM_REGISTRY", raising=False)
+    monkeypatch.delenv("MSAGENT_NPM_REGISTRY_ONLY", raising=False)
+    monkeypatch.setattr(
+        ascend_doc_mcp,
+        "_configured_npm_registry",
+        lambda: "http://npm.internal.example/",
+    )
+    probed: list[str] = []
+
+    def fake_probe(registry, *, version, timeout_seconds=20.0):
+        probed.append(registry)
+        if registry == "http://npm.internal.example/":
+            return "1.2.3"
+        raise RuntimeError("blocked")
+
+    monkeypatch.setattr(ascend_doc_mcp, "_probe_registry", fake_probe)
+
+    selection = ascend_doc_mcp.select_registry(version="1.2.3")
+
+    assert selection.registry == "http://npm.internal.example/"
+    assert probed == ["http://npm.internal.example/"]
+
+
+def test_select_registry_keeps_env_override_ahead_of_the_configured_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MSAGENT_NPM_REGISTRY", "https://npm.example.com")
+    monkeypatch.setattr(
+        ascend_doc_mcp,
+        "_configured_npm_registry",
+        lambda: "http://npm.internal.example/",
+    )
+    probed: list[str] = []
+
+    def fake_probe(registry, *, version, timeout_seconds=20.0):
+        probed.append(registry)
+        return "1.2.3"
+
+    monkeypatch.setattr(ascend_doc_mcp, "_probe_registry", fake_probe)
+
+    selection = ascend_doc_mcp.select_registry(version="1.2.3")
+
+    assert selection.registry == "https://npm.example.com"
+    assert probed == ["https://npm.example.com"]
+
+
+def test_registry_only_mode_ignores_the_configured_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MSAGENT_NPM_REGISTRY", "https://npm.example.com")
+    monkeypatch.setenv("MSAGENT_NPM_REGISTRY_ONLY", "1")
+
+    def fail_configured() -> str:
+        raise AssertionError("MSAGENT_NPM_REGISTRY_ONLY must not read npm config")
+
+    monkeypatch.setattr(ascend_doc_mcp, "_configured_npm_registry", fail_configured)
+    monkeypatch.setattr(
+        ascend_doc_mcp,
+        "_probe_registry",
+        lambda registry, *, version, timeout_seconds=20.0: "1.2.3",
+    )
+
+    selection = ascend_doc_mcp.select_registry(version="1.2.3")
+
+    assert selection.registry == "https://npm.example.com"
 
 
 def test_main_reports_missing_tooling_on_stderr(
@@ -443,3 +605,96 @@ def test_main_reports_nonzero_exit_code_in_quiet_mode(
     assert ascend_doc_mcp.main() == 23
     captured = capsys.readouterr()
     assert "exited with code 23" in captured.err
+
+
+def test_npm_environment_exposes_resolved_node_on_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """npm/npx are `#!/usr/bin/env node` scripts, so node must be on the child PATH."""
+    node_home = tmp_path / "node-home"
+    node_home.mkdir(parents=True, exist_ok=True)
+    if ascend_doc_mcp.os.name == "nt":
+        node_bin = node_home / "node.exe"
+    else:
+        (node_home / "bin").mkdir(parents=True, exist_ok=True)
+        node_bin = node_home / "bin" / "node"
+    node_bin.write_text("", encoding="utf-8")
+    monkeypatch.setenv("MSAGENT_NODE_HOME", str(node_home))
+    monkeypatch.setenv("MSAGENT_NPM_CACHE", str(tmp_path / "npm-cache"))
+    monkeypatch.setenv("PATH", f"/usr/bin{ascend_doc_mcp.os.pathsep}/bin")
+
+    environment = ascend_doc_mcp._npm_environment()
+
+    entries = environment["PATH"].split(ascend_doc_mcp.os.pathsep)
+    assert entries[0] == str(node_bin.parent)
+    assert entries[1:] == ["/usr/bin", "/bin"]
+
+
+def test_npm_environment_does_not_duplicate_existing_node_directory(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    node_home = tmp_path / "node-home"
+    node_home.mkdir(parents=True, exist_ok=True)
+    if ascend_doc_mcp.os.name == "nt":
+        node_bin = node_home / "node.exe"
+    else:
+        (node_home / "bin").mkdir(parents=True, exist_ok=True)
+        node_bin = node_home / "bin" / "node"
+    node_bin.write_text("", encoding="utf-8")
+    monkeypatch.setenv("MSAGENT_NODE_HOME", str(node_home))
+    monkeypatch.setenv("MSAGENT_NPM_CACHE", str(tmp_path / "npm-cache"))
+    monkeypatch.setenv("PATH", f"{node_bin.parent}{ascend_doc_mcp.os.pathsep}/usr/bin")
+
+    environment = ascend_doc_mcp._npm_environment()
+
+    entries = environment["PATH"].split(ascend_doc_mcp.os.pathsep)
+    assert entries.count(str(node_bin.parent)) == 1
+
+
+def test_run_mcp_server_gives_the_npx_child_node_on_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """The regression behind `/usr/bin/env: 'node': No such file or directory`.
+
+    npx is a `#!/usr/bin/env node` script, so the spawned child needs node's
+    directory on PATH even when the launcher resolved node by absolute path.
+    """
+    node_home = tmp_path / "node-home"
+    node_home.mkdir(parents=True, exist_ok=True)
+    if ascend_doc_mcp.os.name == "nt":
+        node_bin = node_home / "node.exe"
+    else:
+        (node_home / "bin").mkdir(parents=True, exist_ok=True)
+        node_bin = node_home / "bin" / "node"
+    node_bin.write_text("", encoding="utf-8")
+    monkeypatch.setenv("MSAGENT_NODE_HOME", str(node_home))
+    monkeypatch.setenv("MSAGENT_NPM_CACHE", str(tmp_path / "npm-cache"))
+    monkeypatch.setenv("PATH", "/usr/bin")
+
+    class FakeChild:
+        stdout = io.BytesIO(b"")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def wait(self) -> int:
+            return 0
+
+    seen_env: list[dict[str, str]] = []
+
+    def fake_popen(_command, **kwargs):
+        seen_env.append(kwargs["env"])
+        return FakeChild()
+
+    monkeypatch.setattr(ascend_doc_mcp.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(ascend_doc_mcp.sys, "stdin", SimpleNamespace(buffer=io.BytesIO()))
+    monkeypatch.setattr(ascend_doc_mcp.sys, "stdout", SimpleNamespace(buffer=io.BytesIO()))
+
+    assert ascend_doc_mcp._run_mcp_server(["npx", "server"]) == 0
+    assert seen_env[0]["PATH"].split(ascend_doc_mcp.os.pathsep)[0] == str(node_bin.parent)

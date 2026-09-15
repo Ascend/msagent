@@ -124,3 +124,31 @@ irm https://raw.gitcode.com/Ascend/msagent/raw/master/scripts/install.ps1 | iex
 
 - 升级：重新执行一键安装命令，安装器会自动升级到最新版本（`uv tool upgrade mindstudio-agent` 亦可）；
 - 卸载：`uv tool uninstall mindstudio-agent`。
+
+## 9. 内网环境安装时提示 `ascend-doc-mcp preparation did not complete` 怎么办？
+
+该告警只影响可选的**文档查询服务**（`ascend-doc-mcp`，即 `ascend-knowledge` 子代理的资料检索）；`msagent` 本体已装好可用，只是该子代理会回报"资料查询暂不可用"。此服务需要 Node.js ≥ 22 和可访问的 npm 源。
+
+**最省事的修法**——把 npm 指向内网源后重跑，之后再无告警：
+
+```shell
+npm config set registry http://<内网 npm 源>/    # 写入 npm 配置，安装器与启动器都会自动采用
+bash scripts/install.sh
+```
+
+**自动行为**（多数情况不用任何配置）：
+
+- 安装器优先使用本机 npm 已配置的源，最后还会兜底一个内置内网镜像；公网机器不受影响。
+- 选源时先并行探测所有候选，只在可达的源上安装，不可达的源会被快速跳过。
+- 预装成功后，运行期直接用本地副本，**不再需要 npm，可离线**。
+
+**常用开关**：
+
+| 变量 | 作用 |
+| --- | --- |
+| `MSAGENT_NPM_REGISTRY` | 临时指定 npm 源（`MSAGENT_NPM_REGISTRY_ONLY=1` 表示只用它） |
+| `MSAGENT_NPM_REGISTRY_FALLBACKS` | 追加兜底源（逗号分隔），供内网统一注入 |
+| `MSAGENT_NODE_HOME` | 复用已有 Node 安装目录，跳过自动下载 |
+| `MSAGENT_NO_ASCEND_DOC_MCP=1` | 不需要该功能，直接跳过，安装过程零告警 |
+
+其它变量（Node 镜像、代理、缓存等）见脚本头部注释。若本机没有 Node ≥ 22，可从 `https://mirrors.huaweicloud.com/nodejs/latest-v22.x/` 取 `node-v22.x.y-linux-x64.tar.xz` 解压后加入 PATH（安装失败时脚本也会打印对应命令）。

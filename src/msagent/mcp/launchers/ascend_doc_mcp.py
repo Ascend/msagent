@@ -6,9 +6,15 @@ resolve ``npx.cmd`` through PATHEXT) and lets npm diagnostics pollute the
 JSON-RPC stdout channel. This launcher:
 
 - resolves the Node toolchain with ``.cmd``/``.exe`` candidates on Windows;
-- selects an npm registry (``MSAGENT_NPM_REGISTRY`` first, then
-  ``registry.npmmirror.com`` -> ``registry.npmjs.org``) by probing package
-  metadata, with ``MSAGENT_NPM_REGISTRY_ONLY=1`` to force the explicit one;
+- selects an npm registry (``MSAGENT_NPM_REGISTRY`` first, then the registry the
+  machine's own npm is configured with, then ``registry.npmmirror.com`` ->
+  ``mirrors.huaweicloud.com/repository/npm`` -> ``registry.npmjs.org``) by
+  reading the registry's HTTP metadata, so a broken node/npm toolchain cannot
+  block mirror selection, with ``MSAGENT_NPM_REGISTRY_ONLY=1`` to force the
+  explicit one;
+- puts the resolved Node directory on the child PATH, so the npm/npx
+  ``#!/usr/bin/env node`` shebang resolves even when Node lives only under
+  ``~/.msagent/node``;
 - isolates the npm cache into a writable directory;
 - forwards only JSON-RPC lines from the child to stdout;
 - stays quiet by default (errors only): informational launcher diagnostics and
@@ -29,14 +35,20 @@ from pathlib import Path
 from tempfile import gettempdir
 from threading import Thread
 from typing import Any, BinaryIO
+from urllib.parse import quote
 from uuid import uuid4
+
+import httpx
 
 PACKAGE_NAME = "@opencxd/ascend-doc-mcp"
 DEFAULT_REGISTRIES = (
     "https://registry.npmmirror.com",
+    # Huawei Cloud's npm mirror: usually reachable from corporate intranets
+    # where registry.npmmirror.com and registry.npmjs.org are blocked.
+    "https://mirrors.huaweicloud.com/repository/npm",
     "https://registry.npmjs.org",
 )
-TOOLCHAIN_COMMANDS = ("node", "npm", "npx")
+TOOLCHAIN_COMMANDS = ("node", "npx")
 
 # Node toolchain installed by scripts/install.sh into ~/.msagent/node (override
 # with MSAGENT_NODE_HOME). The ascend-doc-mcp package pre-installed into
@@ -157,9 +169,46 @@ def _metadata_spec(version: str) -> str:
     return f"{PACKAGE_NAME}@{version}"
 
 
+def _node_bin_dir() -> Path | None:
+    """Return the directory holding the Node executable used by the launcher.
+
+    ``_resolve_tool`` may return a bare command name when Node is only found on
+    PATH, so the located path is resolved back to its directory.
+    """
+    node = _resolve_tool("node")
+    if node is None:
+        return None
+    located = shutil.which(node) or node
+    candidate = Path(located)
+    if candidate.parent == Path("."):
+        return None
+    return candidate.parent
+
+
+def _expose_node_on_path(environment: dict[str, str]) -> None:
+    """Put the resolved Node directory on the child PATH.
+
+    ``npm`` and ``npx`` are ``#!/usr/bin/env node`` scripts, so they need
+    ``node`` on PATH even when the launcher resolved it to an absolute path
+    (for example the installer-provisioned ``~/.msagent/node``). Without this,
+    npm fails with ``/usr/bin/env: 'node': No such file or directory`` on hosts
+    where Node is not on the ambient PATH.
+    """
+    node_bin_dir = _node_bin_dir()
+    if node_bin_dir is None:
+        return
+    path_key = next((key for key in environment if key.upper() == "PATH"), "PATH")
+    entries = [entry for entry in environment.get(path_key, "").split(os.pathsep) if entry]
+    normalized = os.path.normcase(str(node_bin_dir))
+    if any(os.path.normcase(entry) == normalized for entry in entries):
+        return
+    environment[path_key] = os.pathsep.join([str(node_bin_dir), *entries])
+
+
 def _npm_environment() -> dict[str, str]:
     """Use a writable npm cache when the user's global cache is unavailable."""
     environment = os.environ.copy()
+    _expose_node_on_path(environment)
     configured_cache = os.getenv("MSAGENT_NPM_CACHE", "").strip()
     candidates = [
         Path(configured_cache) if configured_cache else None,
@@ -193,36 +242,36 @@ def _npm_environment() -> dict[str, str]:
 
 
 def _probe_registry(registry: str, *, version: str, timeout_seconds: float = 20.0) -> str:
-    spec = _metadata_spec(version)
-    command = [
-        _tool_command("npm"),
-        "view",
-        spec,
-        "version",
-        "--registry",
-        registry,
-        "--json",
-    ]
-    completed = subprocess.run(
-        command,
-        capture_output=True,
-        check=False,
-        text=True,
-        timeout=timeout_seconds,
-        env=_npm_environment(),
-    )
-    if completed.returncode != 0:
-        stderr = (completed.stderr or completed.stdout or "").strip()
-        raise RuntimeError(stderr or f"npm view failed for {spec}")
+    """Return the package version this registry serves for ``version``.
 
-    output = (completed.stdout or "").strip()
-    if not output:
-        raise RuntimeError(f"npm view returned no metadata for {spec}")
+    Reads the registry's HTTP metadata (``<registry>/<pkg>/<tag>``) instead of
+    shelling out to ``npm view``: mirror selection then works even when node/npm
+    are missing or broken, and no Node toolchain is needed just to pick a
+    registry. The Node toolchain is only required to actually run the package.
+    """
+    spec = _metadata_spec(version)
+    # Percent-encode the package name the way npm itself requests scoped
+    # packages (``/@scope%2Fname``): the scope separator is data, not a path
+    # separator, and a registry or proxy that routes on path depth would
+    # otherwise see two segments. ``@`` stays literal -- it is a legal path
+    # character and every registry serves it that way.
+    package_path = quote(PACKAGE_NAME, safe="@")
+    url = f"{registry.rstrip('/')}/{package_path}/{version}"
+    try:
+        response = httpx.get(
+            url,
+            timeout=timeout_seconds,
+            follow_redirects=True,
+            headers={"Accept": "application/json"},
+        )
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"metadata request failed for {spec}: {exc}") from exc
 
     try:
-        parsed: Any = json.loads(output)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"npm view returned invalid JSON for {spec}: {exc}") from exc
+        parsed: Any = response.json()
+    except ValueError as exc:
+        raise RuntimeError(f"npm metadata for {spec} was not valid JSON: {exc}") from exc
 
     if isinstance(parsed, dict):
         value = parsed.get("version")
@@ -234,6 +283,39 @@ def _probe_registry(registry: str, *, version: str, timeout_seconds: float = 20.
         return parsed.strip()
 
     raise RuntimeError(f"npm metadata for {spec} was not a version string")
+
+
+def _configured_npm_registry() -> str | None:
+    """Registry npm itself is configured to use, when it is not a public default.
+
+    Corporate intranets usually point npm at an internal mirror (``.npmrc``
+    pushed by IT), so honoring that configuration makes on-demand fetches work
+    on an intranet without hardcoding any internal host here. Any failure or
+    timeout is ignored: the caller falls back to the probed defaults.
+    """
+    npm = _resolve_tool("npm")
+    if npm is None:
+        return None
+    try:
+        completed = subprocess.run(
+            [npm, "config", "get", "registry"],
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=15.0,
+            env=_npm_environment(),
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if completed.returncode != 0:
+        return None
+    value = (completed.stdout or "").strip()
+    if not value or value.lower() in {"undefined", "null"}:
+        return None
+    normalized = value.rstrip("/")
+    if any(normalized == registry.rstrip("/") for registry in DEFAULT_REGISTRIES):
+        return None
+    return value
 
 
 def _registry_candidates() -> list[str]:
@@ -260,10 +342,18 @@ def select_registry(*, version: str | None = None) -> RegistrySelection:
     if registry_only and not preferred_registry:
         raise RuntimeError("MSAGENT_NPM_REGISTRY_ONLY=1 requires MSAGENT_NPM_REGISTRY to be set")
 
+    candidates = _registry_candidates()
+    if not registry_only:
+        configured = _configured_npm_registry()
+        if configured and configured not in candidates:
+            # Explicit env var first, then the machine's own npm configuration
+            # (that is where intranet mirrors live), then the public defaults.
+            candidates.insert(1 if preferred_registry else 0, configured)
+
     diagnostics: list[str] = []
     last_error: str | None = None
 
-    for registry in _registry_candidates():
+    for registry in candidates:
         try:
             discovered_version = _probe_registry(registry, version=resolved_version)
         except Exception as exc:  # pragma: no cover - surfaced in diagnostics
@@ -424,7 +514,9 @@ def main() -> int:
             _stderr(f"ascend-doc-mcp launcher error while starting local MCP server: {exc}")
             return 127
 
-    missing = [command for command in ("npm", "npx") if _resolve_tool(command) is None]
+    # Only npx is required here: registry selection uses plain HTTP metadata,
+    # so a broken or missing npm no longer blocks the on-demand path.
+    missing = [command for command in ("npx",) if _resolve_tool(command) is None]
     if missing:
         _stderr(f"ascend-doc-mcp launcher error: Missing required Node.js tooling: {', '.join(missing)}")
         return 127
