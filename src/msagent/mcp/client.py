@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import importlib
+import logging
 from datetime import timedelta
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, cast
@@ -30,6 +31,8 @@ from msagent.tools.factory import ToolFactory
 
 if TYPE_CHECKING:
     from langchain_core.tools import BaseTool
+
+logger = logging.getLogger(__name__)
 
 try:
     _mcp_client_module: ModuleType | None = importlib.import_module("langchain_mcp_adapters.client")
@@ -56,22 +59,37 @@ class MCPClient:
         self.tool_factory = tool_factory or ToolFactory()
         self._tools: list[BaseTool] = []
         self._module_map: dict[str, str] = {}
+        self._unavailable_servers: dict[str, str] = {}
 
     async def tools(self) -> list[BaseTool]:
-        """Load and return tools from all enabled MCP servers."""
+        """Load and return tools from all enabled MCP servers.
+
+        An unavailable server never fails the load: its servers are retried
+        individually and the ones that cannot start are reported through
+        :attr:`unavailable_servers` and skipped, so an optional MCP server
+        (for example the Node-based docs server on an offline host) cannot
+        prevent a session from starting.
+        """
         if MultiServerMCPClient is None:
             raise RuntimeError("langchain-mcp-adapters is required but not installed.")
         connections = self._build_connections()
         if not connections:
             self._tools = []
             self._module_map = {}
+            self._unavailable_servers = {}
             return []
 
         client = MultiServerMCPClient(
             connections=cast(Any, connections),
             tool_name_prefix=True,
         )
-        loaded_tools = await client.get_tools()
+        self._unavailable_servers = {}
+        try:
+            loaded_tools = await client.get_tools()
+        except Exception as exc:
+            # The adapter starts every server in one task group, so a single
+            # unreachable server fails the whole batch.
+            loaded_tools = await self._load_tools_per_server(connections, error=exc)
 
         filtered_tools: list[BaseTool] = []
         module_map: dict[str, str] = {}
@@ -106,9 +124,39 @@ class MCPClient:
         self._module_map = module_map
         return filtered_tools
 
+    async def _load_tools_per_server(
+        self,
+        connections: dict[str, dict[str, Any]],
+        *,
+        error: BaseException,
+    ) -> list[BaseTool]:
+        """Load each server on its own, skipping the ones that cannot start."""
+        logger.warning(
+            "Loading MCP tools for all servers failed (%s); retrying each server "
+            "individually and skipping the unavailable ones.",
+            error,
+        )
+        loaded_tools: list[BaseTool] = []
+        for server_name, connection in connections.items():
+            single_client = MultiServerMCPClient(
+                connections=cast(Any, {server_name: connection}),
+                tool_name_prefix=True,
+            )
+            try:
+                loaded_tools.extend(await single_client.get_tools())
+            except Exception as exc:
+                self._unavailable_servers[server_name] = str(exc).strip() or exc.__class__.__name__
+                logger.warning("MCP server '%s' is unavailable and was skipped: %s", server_name, exc)
+        return loaded_tools
+
     @property
     def module_map(self) -> dict[str, str]:
         return dict(self._module_map)
+
+    @property
+    def unavailable_servers(self) -> dict[str, str]:
+        """Enabled servers that could not be started, mapped to their error."""
+        return dict(self._unavailable_servers)
 
     async def close(self) -> None:
         # MultiServerMCPClient uses per-call sessions, no long-lived close required.

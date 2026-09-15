@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
@@ -16,6 +17,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from msagent.agents.context import AgentContext
 from msagent.agents.factory import AgentFactory
 from msagent.cli.bootstrap.timer import timer
+from msagent.cli.theme import console
 from msagent.configs import (
     AgentConfig,
     BatchAgentConfig,
@@ -39,6 +41,8 @@ if TYPE_CHECKING:
     from langchain_core.tools import BaseTool
     from langgraph.checkpoint.base import BaseCheckpointSaver
     from langgraph.graph.state import CompiledStateGraph
+
+logger = logging.getLogger(__name__)
 
 
 class Initializer:
@@ -249,12 +253,30 @@ class Initializer:
             mcp_config=mcp_config,
             mcp_module_map=mcp_module_map,
         )
+        self._warn_unavailable_mcp_servers(mcp_client)
 
         async def cleanup() -> None:
             await mcp_client.close()
             await checkpointer_ctx.__aexit__(None, None, None)
 
         return graph, cleanup
+
+    def _warn_unavailable_mcp_servers(self, mcp_client: Any) -> None:
+        """Report enabled MCP servers that could not be started.
+
+        These servers no longer abort session startup, so the user has to be
+        told which capabilities are missing.
+        """
+        unavailable = dict(getattr(mcp_client, "unavailable_servers", {}) or {})
+        if not unavailable:
+            return
+        names = ", ".join(sorted(unavailable))
+        logger.warning("MCP servers unavailable: %s", unavailable)
+        console.print_warning(
+            f"MCP server(s) unavailable: {names}. Their tools are not loaded; "
+            "run the installer to fix them or use /mcp to disable them."
+        )
+        console.print("")
 
     def _resolve_skills_dirs(self, working_dir: Path) -> list[Path]:
         candidates = [

@@ -107,3 +107,85 @@ async def test_mcp_client_uses_default_timeout_when_server_timeout_missing(monke
     await client.tools()
 
     assert tool_factory.calls == [("alpha_ping", 123.0, "mcp:alpha")]
+
+
+@pytest.mark.asyncio
+async def test_mcp_client_skips_unavailable_server_instead_of_failing(monkeypatch) -> None:
+    """One unreachable server must not abort the whole session."""
+
+    class FakeMultiServerMCPClient:
+        def __init__(self, connections, *, tool_name_prefix=False):
+            assert tool_name_prefix is True
+            self.connections = connections
+
+        async def get_tools(self):
+            if len(self.connections) > 1:
+                # Mirrors the adapter's anyio task-group failure text.
+                raise RuntimeError("unhandled errors in a TaskGroup (1 sub-exception)")
+            if "beta" in self.connections:
+                raise RuntimeError("beta-server: not found")
+            return [
+                SimpleNamespace(name="alpha_ping", description="ping", ainvoke=lambda *_args, **_kwargs: None),
+            ]
+
+    monkeypatch.setattr("msagent.mcp.client.MultiServerMCPClient", FakeMultiServerMCPClient)
+
+    config = MCPConfig(
+        servers={
+            "alpha": MCPServerConfig(command="alpha-server", transport=MCPTransport.STDIO, enabled=True),
+            "beta": MCPServerConfig(command="beta-server", transport=MCPTransport.STDIO, enabled=True),
+        }
+    )
+    client = MCPClient(config, tool_factory=_StubToolFactory())
+
+    tools = await client.tools()
+
+    assert [tool.name for tool in tools] == ["alpha_ping"]
+    assert client.module_map == {"alpha_ping": "mcp:alpha"}
+    assert list(client.unavailable_servers) == ["beta"]
+    assert "not found" in client.unavailable_servers["beta"]
+
+
+@pytest.mark.asyncio
+async def test_mcp_client_survives_every_server_failing(monkeypatch) -> None:
+    class FakeMultiServerMCPClient:
+        def __init__(self, connections, *, tool_name_prefix=False):
+            self.connections = connections
+
+        async def get_tools(self):
+            raise RuntimeError("unhandled errors in a TaskGroup (1 sub-exception)")
+
+    monkeypatch.setattr("msagent.mcp.client.MultiServerMCPClient", FakeMultiServerMCPClient)
+
+    config = MCPConfig(
+        servers={
+            "ascend-doc-mcp": MCPServerConfig(command="msagent-ascend-doc-mcp", enabled=True),
+        }
+    )
+    client = MCPClient(config, tool_factory=_StubToolFactory())
+
+    assert await client.tools() == []
+    assert sorted(client.unavailable_servers) == ["ascend-doc-mcp"]
+
+
+@pytest.mark.asyncio
+async def test_mcp_client_reports_no_unavailable_server_on_success(monkeypatch) -> None:
+    class FakeMultiServerMCPClient:
+        def __init__(self, connections, *, tool_name_prefix=False):
+            self.connections = connections
+
+        async def get_tools(self):
+            return [
+                SimpleNamespace(name="alpha_ping", description="ping", ainvoke=lambda *_args, **_kwargs: None),
+            ]
+
+    monkeypatch.setattr("msagent.mcp.client.MultiServerMCPClient", FakeMultiServerMCPClient)
+
+    config = MCPConfig(
+        servers={"alpha": MCPServerConfig(command="alpha-server", enabled=True)},
+    )
+    client = MCPClient(config, tool_factory=_StubToolFactory())
+
+    await client.tools()
+
+    assert client.unavailable_servers == {}

@@ -4,9 +4,12 @@
 
 | 文件 | 作用 | 速度 |
 | --- | --- | --- |
-| `test_install_sh.sh` | install.sh 逻辑测试（mock uv）：静态检查、版本号提前打印、源优先级/`MSAGENT_INDEX` 透传、PyPI 回退重试、`MSAGENT_NO_MODIFY_PATH`、失败提示 | 秒级（仅网络探测） |
-| `test_install_ps1.ps1` | install.ps1 等价逻辑测试（mock uv） | 秒级 |
+| `test_install_sh.sh` | install.sh 逻辑测试（mock uv）：静态检查、figlet banner 与 6 阶段中文输出、结尾汇总、版本号提前打印、源优先级/`MSAGENT_INDEX` 透传、PyPI 回退重试、Node 镜像候选链与内网优先、npm 源自动选择与**跨源回退**（显式指定/本机 npm 配置 → npmmirror → 华为云 → npmjs，`MSAGENT_NPM_REGISTRY_ONLY=1` 时不回退）、**npm 缓存目录不可写时自动换目录**、版本 pin、`MSAGENT_NO_MODIFY_PATH`、失败提示 | 秒级（离线，用 fake curl/npm/node） |
+| `test_install_ps1.ps1` | install.ps1 等价逻辑测试（mock uv）：阶段编号、结尾汇总、源优先级、`MSAGENT_INDEX` 透传、PyPI 回退重试 | 秒级 |
 | `smoke_install.sh` | 真实安装冒烟：在一次性 HOME 里完整安装并验证 `msagent --version` 与 msprof-mcp | 分钟级（下载全部依赖） |
+
+启动器（`msagent-ascend-doc-mcp`）侧的选源与 PATH 行为由 `tests/ut/mcp/test_ascend_doc_launcher.py` 守护
+（其中 registry 探测改为读取 HTTP metadata，不再依赖 npm 可执行文件）。
 
 `fake_uv.sh` / `fake_uv.ps1` 是 mock uv（PS 版跨平台，Windows PowerShell 与 pwsh 通用）：记录每次调用参数，并按场景控制退出码（
 `MSAGENT_TEST_UV_FAIL`、`MSAGENT_TEST_UV_FAIL_PYPI_ONLY`），测试不执行真实安装、
