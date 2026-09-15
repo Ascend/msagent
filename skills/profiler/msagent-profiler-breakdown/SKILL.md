@@ -2,7 +2,9 @@
 name: msagent-profiler-breakdown
 description: 场景化拆解（阶段归因 + 单次执行边界 + 报告一步到位）。触发：完整性能拆解、一键从 DB 到报告。三步流程：场景确认 → 执行拆解 → 生成报告。
 metadata:
-  layer: workflow
+  author: MindStudio Agent Team
+  category: profiler
+  version: 0.1.0
 ---
 
 # msagent-profiler-breakdown —— 场景化拆解（一步到位）
