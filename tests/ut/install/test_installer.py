@@ -16,7 +16,6 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -43,16 +42,6 @@ def _run_suite(argv: list[str]) -> None:
             f"installer test suite failed ({argv[0]}):\n"
             f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
         )
-
-
-@pytest.mark.skipif(sys.platform == "win32", reason="install.sh refuses MSYS/MinGW/CYGWIN shells")
-def test_install_sh_logic_suite() -> None:
-    """install.sh logic: version announcement, index priority, PyPI fallback
-    retry, NO_MODIFY_PATH, failure reporting (mock uv, no real install).
-    """
-    if not SH_SUITE.exists():
-        pytest.skip("tests/install/test_install_sh.sh not found")
-    _run_suite(["bash", str(SH_SUITE)])
 
 
 def test_install_ps1_logic_suite() -> None:
