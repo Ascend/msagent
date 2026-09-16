@@ -163,10 +163,14 @@
 
 ### 结构化回退经验（二分前接入）
 
-采用 `standing_high_with_experience` 策略时，**进入二分搜索前**，主 Agent 应先委派 `quantization-expert-experience-tuning-rules` 取得「结构化回退意见」，作为 practice-generator 生成/修改 Practice YAML 时 `exclude` / 高精度档位 / 提级项的**初始化候选**，再跑二分。
+采用 `standing_high_with_experience` 策略时，**委派专家经验前**，主 Agent 先调用
+`tune-practice-cfg/scripts/check_anti_outlier_support.py --model-type <model_type> --model-path <model_path>`
+获取已安装 Adapter 的 `supported_algorithms`，作为专家经验可选的离群值抑制算法集合。
+然后在进入二分搜索前委派 `quantization-expert-experience-tuning-rules` 取得「结构化回退意见」，
+作为 practice-generator 生成/修改 Practice YAML 时 `exclude` / 高精度档位 / 提级项的**初始化候选**，再跑二分。
 
 - **接入时机**：FP baseline 获取与压缩数据集来源确认之后、`(>>> 循环开始 <<<)` 之前执行一次；拿到回退意见后随每轮 `prev_result` 一起传给 practice-generator，由后者在生成 Practice 时落地（因此该意见**不参与、也不替代** standing_high 的二分搜索逻辑本身）。
-- **委派 `input` 参考**：模型结构类型、`quant_type`（`w8a8`/`w4a8`/`w4a4`）、是否 MoE / EP、routed/shared experts 与 gate/router 命名、当前 `include`/`exclude`、浮点基线与敏感层分析、可引用 `lab_practice` YAML 路径。
+- **委派 `input` 参考**：模型结构类型、`quant_type`（`w8a8`/`w4a8`/`w4a4`）、是否 MoE / EP、routed/shared experts 与 gate/router 命名、当前 `include`/`exclude`、浮点基线与敏感层分析、可引用 `lab_practice` YAML 路径，以及 `supported_algorithms`。专家只从该集合中推荐或询问用户选择离群值抑制算法。
 - **回退意见用途**：优先回退候选（如 `mlp.down_proj`、`o_proj`、MoE `gate`/`router`、`shared_experts`、MLA 低秩投影等）与置信度/证据等级，供 practice-generator 作为初值；最终是否回退、回退哪些层，仍以敏感层分析 + 本轮精度结果 + 二分收敛为准。
 - **只回答问题、不执行**：`quantization-expert-experience-tuning-rules` 仅输出「哪些层需要回退」，不改 YAML、不量化、不做 EP 检查 / 服务化 / 评测；这些动作仍由 practice-generator / quantizer / evaluator / EP 适配承接。
 - **策略为 `standing_high`（不含 experience）时**：不强制委派该 skill，可按需作为参考，不改变二分流程。
@@ -293,8 +297,9 @@
 | `prev_result` | object\|null | | 上轮评测结果，首轮 `null` |
 | `anchor_practice` | string\|null | | 已知最优且达标的 Practice 路径 |
 | `experience_hints` | object\|null | | 结构化回退意见（由 `quantization-expert-experience-tuning-rules` 回传），供生成 Practice 时作为 `exclude`/高精度档位初值；`standing_high` 策略时为 `null` |
+| `supported_algorithms` | string[] | | 专家选择前从已安装 Adapter 接口得到的可选离群值抑制算法；未传时生成阶段须自行预检 |
 
-回传 `output` 必填：`practice_path`，`validation: { ok, valid, errors }`，`commands`（须含 `sensitive_layer_analysis` 与 `validate_practice_yaml`；跳过敏感层分析时前者 `skipped: true`）
+回传 `output` 必填：`practice_path`，`validation: { ok, valid, errors }`，`commands`（须含 `sensitive_layer_analysis`、`validate_practice_yaml`；未传 `supported_algorithms` 时还须含生成前的 `check_anti_outlier_support`）。支持检查只读已安装 Adapter 的对应接口，不运行门禁或依赖模型准备阶段的门禁产物。
 
 委派模板：
 
@@ -314,7 +319,8 @@
     "round": 1,
     "prev_result": null,
     "anchor_practice": null,
-    "experience_hints": null
+    "experience_hints": null,
+    "supported_algorithms": ["quarot", "flex_smooth_quant", "flex_awq_ssz", "iter_smooth"]
   }
 }
 ```

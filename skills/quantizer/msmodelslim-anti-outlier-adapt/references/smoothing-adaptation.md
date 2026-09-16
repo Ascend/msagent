@@ -1,5 +1,8 @@
 # Smoothing-family 图关系参考
 
+接口方法和可复制的最小实现先看
+[interface-quick-reference.md](interface-quick-reference.md)；本文件只补充 Smooth 系列的拓扑核对项。
+
 参考各 processor 接口需要表达的图关系：
 
 | Processor | 接口 |

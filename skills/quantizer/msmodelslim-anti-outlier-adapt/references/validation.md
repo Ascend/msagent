@@ -26,6 +26,11 @@ Agent 必须根据当前模型 `config.json`、实际 `modeling_*.py`、Adapter 
 官方图生成模型专用 patch。patch 文件必须导出 `PATCH_METADATA` 和
 `capture_final_logits(self, model, inputs, device)`，并精确匹配 model type、Adapter 完整类名、
 checkpoint identity 和 `logits_scope`。
+若 PATCH 为避免 FP32/BF16 算子不兼容而显式 cast 激活，必须在
+`PATCH_METADATA.dtype_casts` 逐项记录 `boundary`、`from`、`to`；norm 内部可保留
+FP32 计算，但进入 BF16 算子的激活须在真实 forward 的对应边界对齐 dtype。
+before/after 必须使用同一 cast 规则，不得全局转换持久模型参数。processor 校准 forward
+不经过此 PATCH，其 dtype 错误归为 `PROCESSOR_FAILED`，另行定位该 forward 路径。
 
 processor 执行前至少检查：
 
@@ -35,7 +40,8 @@ processor 执行前至少检查：
   version counter；固定输入、`eval()` 和相同 seed 下输出有限、shape/dtype 稳定且可重复；
 4. 在有可信完整输出、小模型 fixture 或参考 logits 时做模型专用交叉校验。
 
-结果写入 `final_logits_patch_validation.json`，包括 patch 路径、SHA256、metadata、Adapter 类、
+结果按算法写入 `final_logits_patch_validation.<algorithm>.json`，避免多个算法覆盖验证 hash；
+每份包括 patch 路径、SHA256、metadata、Adapter 类、
 checkpoint identity、输入摘要、输出范围、参考路径、误差指标和 PASS/FAIL。失败时标记
 `PATCH_UNSUPPORTED` 或 `PATCH_VALIDATION_FAILED`，禁止使用通用 norm/head 回退。
 
@@ -52,8 +58,9 @@ checkpoint identity、输入摘要、输出范围、参考路径、误差指标�
 5. 写出 `anti_outlier_run.<algorithm>.json`，在开始时创建并在任何失败阶段落盘；记录 patch provenance、
   processor 配置来源、runner、输入摘要、接口验证文件及 hash 和 `quantization_run: false`。
   接口验证文档必须包含并精确匹配当前 checkpoint identity；缺失 identity 不得视为有效证据。
-6. 执行
-  `scripts/compare_final_logits.py --algorithm <algorithm> --run-record <run-record.json>`（运行前必须已提供
+6. 执行 `scripts/compare_final_logits.py --algorithm <algorithm> --run-record <run-record.json>
+  --fp-logits <final_logits.before.<algorithm>.npy> --anti-outlier-logits <final_logits.after.<algorithm>.npy>
+  --output <output_dir>/final_logits_comparison.<algorithm>.json`（前一步运行时必须已提供
   `--interface-validation <interface_validation.<interface-name>.json>`）。
   比较脚本必须核对 algorithm/processor、patch SHA256、checkpoint identity、输入摘要、before/after
   路径、patch validation、接口验证 SHA256 和 `quantization_run`。数值门禁比较 last-token softmax

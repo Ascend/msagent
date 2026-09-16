@@ -178,6 +178,32 @@ def test_generated_patch_has_exact_target_and_signature(tmp_path):
     )
 
 
+def test_patch_metadata_records_dtype_cast_boundaries(tmp_path):
+    metadata = {
+        "schema": MODULE.PATCH_SCHEMA,
+        "model_type": "fake_model",
+        "adapter_class": f"{FakeAdapter.__module__}:{FakeAdapter.__qualname__}",
+        "checkpoint_identity": "sha256:fixed",
+        "logits_scope": "last_token",
+        "dtype_casts": [{"boundary": "norm -> q_proj", "from": "float32", "to": "bfloat16"}],
+    }
+
+    def capture_final_logits(self, model, inputs, device):
+        return inputs
+
+    assert (
+        MODULE.validate_patch_target(
+            capture_final_logits, FakeAdapter(), "fake_model", "sha256:fixed", metadata=metadata
+        )["dtype_casts"]
+        == metadata["dtype_casts"]
+    )
+    metadata["dtype_casts"][0].pop("to")
+    with pytest.raises(MODULE.PatchValidationError, match="dtype_casts"):
+        MODULE.validate_patch_target(
+            capture_final_logits, FakeAdapter(), "fake_model", "sha256:fixed", metadata=metadata
+        )
+
+
 def test_generated_patch_cannot_reload_checkpoint_weights(tmp_path):
     patch_path = tmp_path / "capture.py"
     patch_path.write_text(
@@ -284,9 +310,26 @@ def test_missing_patch_records_unsupported_run(tmp_path):
         )
 
     record = json.loads((output_dir / "anti_outlier_run.quarot.json").read_text(encoding="utf-8"))
-    validation = json.loads((output_dir / "final_logits_patch_validation.json").read_text(encoding="utf-8"))
+    validation = json.loads((output_dir / "final_logits_patch_validation.quarot.json").read_text(encoding="utf-8"))
     assert record["status"] == "PATCH_UNSUPPORTED"
     assert validation["status"] == "UNSUPPORTED"
+
+
+def test_missing_interface_evidence_records_preflight_failure(tmp_path):
+    output_dir = tmp_path / "output"
+    patch_path = tmp_path / "capture.py"
+    patch_path.write_text("PATCH_METADATA = {}\n", encoding="utf-8")
+    with pytest.raises(MODULE.InterfaceValidationError, match="interface-validation"):
+        MODULE.apply_one_anti_outlier_and_record_logits(
+            "iter_smooth",
+            tmp_path / "model",
+            None,
+            output_dir,
+            logits_capture_patch=patch_path,
+        )
+    record = json.loads((output_dir / "anti_outlier_run.iter_smooth.json").read_text(encoding="utf-8"))
+    assert record["status"] == "INTERFACE_VALIDATION_FAILED"
+    assert record["failure"]["stage"] == "interface_validation"
 
 
 def test_processor_failure_is_persisted(tmp_path):

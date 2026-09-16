@@ -5,8 +5,8 @@
 ## 执行流程
 
 1. 从主 Agent 委派的 `msagent-io` 块中读取 `input`（字段见 orchestrator `quantization_tuning.md`）
-2. 调用 tune-practice-cfg skill，传入 `model_type`、`model_path`、`save_path`、`device`、`strategy`、`calib_dataset`、`max_iterations`、`prev_result`、`anchor_practice`、`round`
-3. 生成并校验 Practice YAML 后，按下方输出协议回传
+2. 调用 tune-practice-cfg skill，传入 `model_type`、`model_path`、`save_path`、`device`、`strategy`、`calib_dataset`、`max_iterations`、`prev_result`、`anchor_practice`、`round` 及已有的 `supported_algorithms`
+3. 在选择算法和生成 Practice YAML 前使用 `input.supported_algorithms`；未传时先调用 `check_anti_outlier_support.py --model-type <model_type> --model-path <model_path>` 获取已安装 Adapter 的可选算法。专家经验、基准和本轮配置只使用该集合中的离群值抑制算法。生成后仅做 YAML 校验；不读取门禁产物、不在调优阶段运行门禁。
 
 ## 输出协议（强制）
 
@@ -21,7 +21,7 @@
 |------|------|------|------|
 | `practice_path` | string | ✓ | 本轮 Practice YAML 路径 |
 | `validation` | object | ✓ | `validate_practice_yaml.py` 的 JSON 结果，见下表 |
-| `commands` | object[] | ✓ | 实际执行的 shell；须含 `sensitive_layer_analysis` 与 `validate_practice_yaml` |
+| `commands` | object[] | ✓ | 实际执行的 shell；须含 `sensitive_layer_analysis`、`validate_practice_yaml`；自行预检时还须含 `check_anti_outlier_support` |
 
 `validation` 字段：
 
@@ -35,7 +35,7 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `name` | string | ✓ | `sensitive_layer_analysis` 或 `validate_practice_yaml` |
+| `name` | string | ✓ | `sensitive_layer_analysis`、`validate_practice_yaml` 或生成前的 `check_anti_outlier_support` |
 | `command` | string | | 完整 shell 命令；`skipped: true` 时可省略 |
 | `skipped` | bool | | 未执行时为 `true` |
 | `reason` | string | | 跳过原因 |

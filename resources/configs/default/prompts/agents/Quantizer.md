@@ -35,8 +35,8 @@
 | 子代理 | 适用场景 |
 |--------|----------|
 | `msmodelslim-model-analysis` | 适配前分析：实现来源解析、结构/MoE/逐层加载等风险评估 |
-| `msmodelslim-model-adapt` | 分析通过后：适配模板、注册、`config.ini` 与四步验证 |
-| `msmodelslim-anti-outlier-adapt` | 基础适配验证通过后：逐算法离群值抑制 processor、最终 logits 对比、DOT 图与汇总报告 |
+| `msmodelslim-model-adapt` | 分析通过后：基础模型适配、源码安装与四步验证 |
+| `msmodelslim-anti-outlier-adapt` | 基础适配完成后：所选算法接口与映射适配、安装和验证，逐算法 processor、PATCH logits 门禁、失败专用适配代码撤回、DOT 图与汇总报告 |
 | `quant-tuning-practice-generator` | 生成/调整量化配置（Practice YAML）|
 | `quant-tuning-evaluation-generator` | 生成测评配置文件（Evaluation YAML）|
 | `quant-tuning-quantizer` | 执行模型量化|

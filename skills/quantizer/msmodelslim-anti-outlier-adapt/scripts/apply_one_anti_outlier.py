@@ -60,6 +60,10 @@ class PatchValidationError(RuntimeError):
     """The supplied patch failed syntax, import, or behavioral validation."""
 
 
+class InterfaceValidationError(PatchUnsupportedError):
+    """The installed Adapter is not ready for the selected processor."""
+
+
 class GeneratedPatch(NamedTuple):
     path: Path
     capture: Callable[..., Any]
@@ -213,6 +217,16 @@ def validate_patch_target(
     failed = [name for name, passed in checks.items() if not passed]
     if failed:
         raise PatchUnsupportedError("patch target mismatch: " + ", ".join(failed))
+
+    dtype_casts = metadata.get("dtype_casts", [])
+    if not isinstance(dtype_casts, list) or any(
+        not isinstance(item, Mapping)
+        or not all(isinstance(item.get(key), str) and item[key] for key in ("boundary", "from", "to"))
+        for item in dtype_casts
+    ):
+        raise PatchValidationError(
+            "patch dtype_casts must list boundary/from/to strings"
+        )
 
     try:
         parameters = list(inspect.signature(capture_fn).parameters.values())
@@ -771,29 +785,29 @@ def _load_interface_validation(
 ) -> dict[str, Any]:
     resolved = Path(path).expanduser().resolve()
     if not resolved.is_file():
-        raise PatchUnsupportedError(
+        raise InterfaceValidationError(
             f"interface validation artifact does not exist: {resolved}"
         )
     try:
         loaded = json.loads(resolved.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise PatchValidationError(
+        raise InterfaceValidationError(
             f"interface validation artifact is not valid JSON: {exc}"
         ) from exc
     if not isinstance(loaded, Mapping):
-        raise PatchValidationError(
+        raise InterfaceValidationError(
             "interface validation artifact must contain a JSON object"
         )
     if loaded.get("interface") != expected_interface:
-        raise PatchUnsupportedError(
+        raise InterfaceValidationError(
             "interface validation artifact does not match the selected algorithm"
         )
     if loaded.get("status") != "PASS" or loaded.get("passed") is False:
-        raise PatchUnsupportedError(
+        raise InterfaceValidationError(
             "interface validation artifact is not a passing validation"
         )
     if loaded.get("checkpoint_identity") != expected_checkpoint_identity:
-        raise PatchUnsupportedError(
+        raise InterfaceValidationError(
             "interface validation checkpoint identity does not match the current checkpoint"
         )
     evidence: dict[str, Any] = {
@@ -806,6 +820,18 @@ def _load_interface_validation(
         evidence["interface"] = loaded["interface"]
     evidence["checkpoint_identity"] = expected_checkpoint_identity
     return evidence
+
+
+def _check_installed_adapter_interface(adapter: Any, algorithm: str) -> None:
+    """Reject stale evidence when the installed Adapter lacks the interface."""
+    from msmodelslim.model import interface_hub  # noqa: PLC0415
+
+    name = ALGORITHM_INTERFACE_NAMES[algorithm]
+    interface = getattr(interface_hub, name)
+    if not isinstance(adapter, interface):
+        raise InterfaceValidationError(
+            f"installed Adapter {_qualified_class_name(adapter)} does not implement {name}"
+        )
 
 
 def _select_runner(runner_type: str, adapter: Any, model: Any | None = None) -> str:
@@ -904,7 +930,7 @@ def apply_one_anti_outlier_and_record_logits(
     }
     _write_json(record_path, record)
 
-    validation_path = destination / "final_logits_patch_validation.json"
+    validation_path = destination / f"final_logits_patch_validation.{algorithm}.json"
     validation: dict[str, Any] = {
         "schema": PATCH_VALIDATION_SCHEMA,
         "status": "UNSUPPORTED",
@@ -921,18 +947,32 @@ def apply_one_anti_outlier_and_record_logits(
                 "--logits-capture-patch is required for the logits gate"
             )
         if interface_validation_path is None:
-            raise PatchUnsupportedError(
+            raise InterfaceValidationError(
                 "--interface-validation is required for the logits gate"
             )
 
         resolved_model_type = model_type or _infer_model_type(resolved_model_path)
         checkpoint_id = checkpoint_identity(resolved_model_path)
-        generated_patch = load_generated_patch(logits_capture_patch)
         interface_validation = _load_interface_validation(
             interface_validation_path,
             ALGORITHM_INTERFACE_NAMES[algorithm],
             checkpoint_id,
         )
+        from msmodelslim.core.const import DeviceType
+        from msmodelslim.model.plugin_factory.plugin_model_factory import (
+            PluginModelFactory,
+        )
+
+        adapter = PluginModelFactory().create(
+            resolved_model_type, resolved_model_path, trust_remote_code
+        )
+        _check_installed_adapter_interface(adapter, algorithm)
+        adapter_class = _qualified_class_name(adapter)
+        if interface_validation.get("adapter_class") not in (None, adapter_class):
+            raise InterfaceValidationError(
+                "interface validation Adapter class does not match the installed Adapter"
+            )
+        generated_patch = load_generated_patch(logits_capture_patch)
         record.update(
             {
                 "model_type": resolved_model_type,
@@ -958,15 +998,6 @@ def apply_one_anti_outlier_and_record_logits(
         )
         _write_json(record_path, record)
 
-        from msmodelslim.core.const import DeviceType
-        from msmodelslim.model.plugin_factory.plugin_model_factory import (
-            PluginModelFactory,
-        )
-
-        adapter = PluginModelFactory().create(
-            resolved_model_type, resolved_model_path, trust_remote_code
-        )
-        adapter_class = _qualified_class_name(adapter)
         record["adapter_class"] = adapter_class
         validation["adapter_class"] = adapter_class
         validate_patch_target(
@@ -1078,6 +1109,11 @@ def apply_one_anti_outlier_and_record_logits(
                 run_record=record,
                 interface_validation=interface_validation,
             )
+    except InterfaceValidationError as exc:
+        _record_failure(record, "INTERFACE_VALIDATION_FAILED", "interface_validation", exc)
+        validation["status"] = "UNSUPPORTED"
+        validation["error"] = f"{type(exc).__name__}: {exc}"
+        raise
     except PatchUnsupportedError as exc:
         _record_failure(record, "PATCH_UNSUPPORTED", "patch", exc)
         validation["status"] = "UNSUPPORTED"

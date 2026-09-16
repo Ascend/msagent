@@ -20,7 +20,7 @@
 | `adapter_registered` | bool | ✓ | 是否已在 `config.ini` 注册 |
 | `verification_steps` | object[] | ✓ | 四步 `{ step, name, passed }`；全 `true` 即通过 |
 | `artifact_paths` | object | | 如 `adapter_module`、`config_ini` |
-| `commands` | object[] | ✓ | 须含 `install` 与 `verification_step1`～`verification_step4` |
+| `commands` | object[] | ✓ | 须含 `install`、`verification_step1`～`verification_step4` |
 
 `verification_steps[]` 每项：`step`（1～4）、`name`、`passed`（bool）
 

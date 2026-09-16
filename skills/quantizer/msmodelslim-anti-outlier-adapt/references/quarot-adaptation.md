@@ -1,5 +1,8 @@
 # QuaRot 图关系参考
 
+接口方法和可复制的最小实现先看
+[interface-quick-reference.md](interface-quick-reference.md)；本文件只补充 QuaRot 的拓扑核对项。
+
 参考 `QuaRotInterface` 的 `get_ln_fuse_map`、`get_bake_names` 和
 `get_rotate_map(block_size)` 所需语义，整理图节点、图边和约束。
 
