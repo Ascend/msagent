@@ -309,4 +309,4 @@ python scripts/verify_extracted_metrics.py --data-a <a.json> [--data-b <b.json>]
 - 并行策略信息从 `cluster_base_info` 的 `algorithm`/`dp_size`/`pp_size`/`tp_size` 字段或 `profiler_metadata.json` 获取
 - 慢卡识别阈值：Stage 时间偏离所有 Rank 均值超过 10% 即标记为异常
 - 比对报告中，集群 A 为基准（正常），集群 B 为对比（异常），所有差值 = B − A
-- 昇腾950PR&950DT 系列 CCU 场景不支持采集通信矩阵和通信算子带宽数据，此类数据缺失属正常现象
+- Ascend 950PR&950DT 系列 CCU 场景不支持采集通信矩阵和通信算子带宽数据，此类数据缺失属正常现象

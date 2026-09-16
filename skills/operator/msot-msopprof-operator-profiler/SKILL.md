@@ -348,9 +348,9 @@ msprof op simulator --soc-version=Ascend910B4 --export=./dump_dir --output=./out
 | `Source` | 代码热点图 | `visualize_data.bin` | 通常需 `-g` 编译 |
 | `MemoryDetail` | L2 / 内存细节增强 | CSV + `visualize_data.bin` | 与 `Default` 绑定 |
 | `TimelineDetail` | 指令流水 + 上板热点图增强 | `visualize_data.bin` | device-only，且限制较多 |
-| `PipeTimeline` | Pipe 流水图 | `trace.json` + `visualize_data.bin` | 仅昇腾950PR&950DT系列产品 |
+| `PipeTimeline` | Pipe 流水图 | `trace.json` + `visualize_data.bin` | 仅Ascend 950PR&950DT 系列产品 |
 | `KernelScale` | 指定代码段采集 | CSV / 可视化 | 依赖 Kernel 侧插桩 API |
-| `PcSampling` | SIMT stall 信息 | `visualize_data.bin` | 仅昇腾950PR&950DT系列产品 |
+| `PcSampling` | SIMT stall 信息 | `visualize_data.bin` | 仅Ascend 950PR&950DT 系列产品 |
 | `BasicInfo` | 只采集基础信息 | `OpBasicInfo.csv` | 轻量模式 |
 
 > 说明：
