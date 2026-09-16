@@ -8,6 +8,8 @@
 
 同时支持[pip 安装](#32-pip-安装)与[源码安装](#33-源码安装)两种方式。
 
+> 一键安装走 uv 隔离工具环境，**卸载只能用 `uv tool uninstall mindstudio-agent`，`pip uninstall` 无效**；各方式的升级、卸载命令见[§5.2](#52-按安装方式选择升级与卸载命令)。
+
 ## 2. 环境要求
 
 - **无需预先安装 Python**：一键安装会自动下载所需的 Python 版本（`>= 3.11`）。
@@ -21,6 +23,8 @@
 ## 3. 安装方式
 
 ### 3.1 一键安装
+
+> **安装方式**：uv 隔离工具环境（安装器执行 `uv tool install -U --python 3.11 mindstudio-agent`），**不经过 pip**；升级、卸载只能用 uv 子命令，见[§5.2](#52-按安装方式选择升级与卸载命令)。
 
 安装器默认使用国内镜像（安装快）；若镜像尚未同步最新版本，会自动改用官方 PyPI 获取最新版。
 
@@ -42,6 +46,8 @@ irm https://raw.gitcode.com/Ascend/msagent/raw/master/scripts/install.ps1 | iex
 msagent --version
 ```
 
+> 若提示 `msagent: command not found`，按安装器日志末尾打印的命令执行（通常是 `source ~/.bashrc`）或重开终端，见[§4.1](#41-安装后提示-command-not-found-怎么办)。
+
 #### 常用环境变量（可选）
 
 | 变量 | 说明 |
@@ -56,20 +62,30 @@ msagent --version
 
 ### 3.2 pip 安装
 
-```shell
-python3 -m venv ~/.msagent-venv
-~/.msagent-venv/bin/pip install mindstudio-agent
-```
+两种落点，卸载方式不同：
 
-或使用 uv 工具安装（推荐替代 pip）：
+- **方式 A：虚拟环境 + pip**
 
-```shell
-uv tool install -U --python 3.11 mindstudio-agent
-```
+  ```shell
+  python3 -m venv ~/.msagent-venv
+  ~/.msagent-venv/bin/pip install mindstudio-agent
+  ```
 
-> 注意：需 `Python >= 3.11`；pip 安装前请确认当前环境为隔离虚拟环境，避免污染现有环境。
+  升级 / 卸载：`~/.msagent-venv/bin/pip install -U mindstudio-agent`、`~/.msagent-venv/bin/pip uninstall -y mindstudio-agent`
+
+- **方式 B：uv 工具安装（推荐替代 pip）**
+
+  ```shell
+  uv tool install -U --python 3.11 mindstudio-agent
+  ```
+
+  升级 / 卸载同[一键安装](#31-一键安装)，**不能用 pip 卸载**：`uv tool upgrade mindstudio-agent`、`uv tool uninstall mindstudio-agent`
+
+> 需 `Python >= 3.11`；直接 `pip install` 到系统环境易冲突或触发 PEP 668 限制，参见《[FAQ](../support/faq.md)》第 7 条。
 
 ### 3.3 源码安装
+
+> **安装方式**：`pip install` 到当前 Python 环境（镜像容器或虚拟环境）；升级用重新构建的 wheel 执行 `pip install -U`，卸载用该环境的 `pip uninstall mindstudio-agent`，见[§5.2](#52-按安装方式选择升级与卸载命令)。
 
 #### 3.3.1 环境准备
 
@@ -131,7 +147,24 @@ msagent --version
 msagent --help
 ```
 
-命令能够输出版本信息和帮助信息，表示安装成功。若提示命令不存在，请确认已重新打开终端（或执行 `source ~/.bashrc` / 重启 shell），使安装器添加的 PATH 生效。
+命令能够输出版本信息和帮助信息，表示安装成功。
+
+### 4.1 安装后提示 command not found 怎么办
+
+安装器只把 uv 工具目录写入 shell 启动文件，不会改动当前已打开的终端，因此装上后立刻执行 `msagent` 会提示 `command not found`。
+
+1. 执行安装器日志末尾打印的命令（通常是 `source ~/.bashrc`，以日志实际打印的启动文件为准），或重开终端。
+2. 日志提示"请自行把 \<工具目录\> 加入 PATH"时（设置了 `MSAGENT_NO_MODIFY_PATH=1`、启动文件不可写、Windows 用户级 PATH 未生效等），手动设置：
+
+   ```shell
+   export PATH="$(uv tool dir --bin):${PATH}"                       # 当前会话生效
+   echo "export PATH=\"$(uv tool dir --bin):\$PATH\"" >> ~/.bashrc  # 持久化
+   ```
+
+   Windows：PowerShell 用 `$env:PATH = "$(uv tool dir --bin);$env:PATH"`，cmd 用 `set PATH=<工具目录>;%PATH%`。
+3. `msagent --version` 复验。
+
+> 除非要自行管理 PATH，否则不要设置 `MSAGENT_NO_MODIFY_PATH=1`（见 §3.1 常用环境变量）。
 
 ## 5. 升级与卸载
 
@@ -139,28 +172,30 @@ msagent --help
 
 当前阶段尚未提供旧项目 `.msagent` 的自动迁移。升级或切换版本时请保留旧目录，不要将删除配置目录作为升级步骤。
 
-常见操作示例：
+### 5.1 先确认当前是哪种安装方式
 
-- 升级（推荐：重新执行一键安装命令，自动升级到最新版）
+升级、卸载命令随安装方式不同而不同，先自检：
 
-  ```shell
-  curl -LsSf https://raw.gitcode.com/Ascend/msagent/raw/master/scripts/install.sh | bash
-  ```
+```shell
+uv tool list                # 含 mindstudio-agent → uv 工具方式（一键安装属于此类）
+command -v msagent          # 指向 ~/.local/bin → uv 工具方式；指向 */venv/bin → 虚拟环境 pip
+pip show mindstudio-agent   # 有输出 → 该 pip 环境还装有一份（源码安装的默认落点）
+```
 
-- 升级（uv 工具方式）
+一键安装不在 pip 环境里留下 `mindstudio-agent`，对它执行 `pip uninstall mindstudio-agent` 只会提示 `Skipping mindstudio-agent as it is not installed`，卸载并未生效。
 
-  ```shell
-  uv tool upgrade mindstudio-agent
-  ```
+### 5.2 按安装方式选择升级与卸载命令
 
-- 卸载（uv 工具方式）
+| 安装方式 | 升级 | 卸载 |
+| --- | --- | --- |
+| 一键安装 / `uv tool install`（uv 工具方式） | 重跑一键安装命令，或 `uv tool upgrade mindstudio-agent` | `uv tool uninstall mindstudio-agent` |
+| 虚拟环境 + pip（如 `~/.msagent-venv`） | `~/.msagent-venv/bin/pip install -U mindstudio-agent` | `~/.msagent-venv/bin/pip uninstall -y mindstudio-agent` |
+| 当前 Python 环境 pip（源码安装） | 重新构建 wheel 后 `pip install -U mindstudio-agent` | `pip uninstall mindstudio-agent` |
 
-  ```shell
-  uv tool uninstall mindstudio-agent
-  ```
+一键安装的升级命令：
 
-- 卸载（pip 方式）
+```shell
+curl -LsSf https://raw.gitcode.com/Ascend/msagent/raw/master/scripts/install.sh | bash
+```
 
-  ```shell
-  pip uninstall mindstudio-agent
-  ```
+> uv 工具方式与 pip 方式互不相通，两种都装过时 PATH 上只有一个生效（安装器会提示遮蔽），按 5.1 的 `command -v msagent` 确认后再卸载。

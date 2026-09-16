@@ -122,8 +122,15 @@ irm https://raw.gitcode.com/Ascend/msagent/raw/master/scripts/install.ps1 | iex
 
 ## 8. 如何升级或卸载 msagent？
 
-- 升级：重新执行一键安装命令，安装器会自动升级到最新版本（`uv tool upgrade mindstudio-agent` 亦可）；
-- 卸载：`uv tool uninstall mindstudio-agent`。
+命令取决于安装方式，一键安装属于 uv 隔离工具环境，不能用 pip 卸载。
+
+| 安装方式 | 升级 | 卸载 |
+| --- | --- | --- |
+| 一键安装 / `uv tool install`（uv 工具方式） | 重跑一键安装命令，或 `uv tool upgrade mindstudio-agent` | `uv tool uninstall mindstudio-agent` |
+| 虚拟环境 + pip（如 `~/.msagent-venv`） | `~/.msagent-venv/bin/pip install -U mindstudio-agent` | `~/.msagent-venv/bin/pip uninstall -y mindstudio-agent` |
+| 当前 Python 环境 pip（源码安装） | `pip install -U mindstudio-agent` | `pip uninstall mindstudio-agent` |
+
+不确定时用 `uv tool list`、`command -v msagent`、`pip show mindstudio-agent` 自检，详见[安装指南 §5.1~5.2](../install_guide/msagent_install_guide.md#52-按安装方式选择升级与卸载命令)。一键安装后执行 `pip uninstall mindstudio-agent` 只会提示 `Skipping mindstudio-agent as it is not installed`，卸载并未生效。
 
 ## 9. 内网环境安装时提示 `ascend-doc-mcp preparation did not complete` 怎么办？
 
@@ -152,3 +159,16 @@ bash scripts/install.sh
 | `MSAGENT_NO_ASCEND_DOC_MCP=1` | 不需要该功能，直接跳过，安装过程零告警 |
 
 其它变量（Node 镜像、代理、缓存等）见脚本头部注释。若本机没有 Node ≥ 22，可从 `https://mirrors.huaweicloud.com/nodejs/latest-v22.x/` 取 `node-v22.x.y-linux-x64.tar.xz` 解压后加入 PATH（安装失败时脚本也会打印对应命令）。
+
+## 10. 一键安装后执行 `msagent` 报 command not found 怎么办？
+
+一键安装只把 uv 工具目录写入 shell 启动文件，不会改动当前终端。执行安装器日志末尾打印的命令（通常是 `source ~/.bashrc`）或重开终端即可。
+
+日志提示"请自行把 \<工具目录\> 加入 PATH"时（如设置了 `MSAGENT_NO_MODIFY_PATH=1`），手动执行：
+
+```shell
+export PATH="$(uv tool dir --bin):${PATH}"                       # 当前会话生效
+echo "export PATH=\"$(uv tool dir --bin):\$PATH\"" >> ~/.bashrc  # 持久化
+```
+
+Windows：PowerShell 用 `$env:PATH = "$(uv tool dir --bin);$env:PATH"`，cmd 用 `set PATH=<工具目录>;%PATH%`。详见[安装指南 §4.1](../install_guide/msagent_install_guide.md#41-安装后提示-command-not-found-怎么办)。
