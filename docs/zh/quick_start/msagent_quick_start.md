@@ -16,6 +16,8 @@ irm https://raw.gitcode.com/Ascend/msagent/raw/master/scripts/install.ps1 | iex
 
 更多安装方式，具体请参见《[msAgent安装指南](../install_guide/msagent_install_guide.md)》。
 
+> 一键安装后若提示 `msagent: command not found`，按安装器日志末尾打印的命令执行（通常是 `source ~/.bashrc`）或重开终端，见[§4.1](../install_guide/msagent_install_guide.md#41-安装后提示-command-not-found-怎么办)；卸载请用 `uv tool uninstall mindstudio-agent`，`pip uninstall` 无效，见[§5.2](../install_guide/msagent_install_guide.md#52-按安装方式选择升级与卸载命令)。
+
 ## 2. 配置 LLM
 
 1. 准备一个可用的 LLM API Key。
