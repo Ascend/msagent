@@ -23,6 +23,7 @@
 | `gen-evaluation-cfg` | 生成测评配置文件，仅由 `quant-tuning-evaluation-generator` 子代理使用 |
 | `quant-tuning-evaluate` | 执行模型精度评测，仅由 `quant-tuning-evaluator` 子代理使用 |
 | `tune-practice-cfg` | Practice YAML 配置生成与校验，仅由 `quant-tuning-practice-generator` 子代理使用 |
+| `msprobe-postprocess-yaml` | 生成 msprobe tensor-postprocess YAML，用于量化模型与浮点模型的 dump 对齐比对；按需使用，不属于调优主循环 |
 | `quant-tuning-quantize` | 执行模型量化，仅由 `quant-tuning-quantizer` 子代理使用 |
 
 编排层在本会话中直接 `execute` 的脚本（history/accuracy 等）以 orchestrator Skill 文档为准；**不要**在本会话中代替子代理完成 Practice/Evaluation 生成、量化或评测的全流程。**不要**加载子代理的 Skill 文档。
