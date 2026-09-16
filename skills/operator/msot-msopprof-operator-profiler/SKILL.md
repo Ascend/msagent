@@ -5,6 +5,8 @@ description: 当用户希望使用 msOpProf（`msprof op` / `msprof op simulator
 
 # msOpProf 算子性能调优
 
+使用本技能时，咨询和执行任务都必须先完成资料查询：在代码仓 https://gitcode.com/Ascend/msopprof 查询 msopprof 与 msopprof simulator 使用资料。下文及 references 中的参数、能力边界和命令模板按返回的相关正文核验后使用；查询失败时查找本地相关工具或本地资料参考用法回答和命令执行。
+
 ## 何时必须使用本技能
 
 当用户问题包含以下任一类需求时，应优先使用本技能：

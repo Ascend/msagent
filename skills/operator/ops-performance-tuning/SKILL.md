@@ -7,6 +7,8 @@ description: Compile, profile, diagnose, optimize, and compare Ascend NPU operat
 
 对可运行且精度通过的昇腾算子执行“环境与版本对齐 → 编译 → 基线 → msOpProf 采集 → 瓶颈判定 → 单变量优化 → 前后对比”。所有性能结论来自目标环境实测；知识库案例只提供候选机制，不替代当前算子的 profiling 证据。
 
+使用本技能时，咨询和执行任务都必须先完成资料查询：在代码仓 https://gitcode.com/Ascend/msopprof 查询 msopprof 与 msopprof simulator 使用资料。下文及 references 中的参数、能力边界和命令模板按返回的相关正文核验后使用；查询失败时查找本地相关工具或本地资料参考用法回答和命令执行。
+
 ## 任务边界
 
 - 已有源码、构建入口和测试入口，用户要求性能分析或调优：执行本流程。
