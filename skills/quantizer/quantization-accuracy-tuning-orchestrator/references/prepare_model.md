@@ -13,8 +13,8 @@
 | 子代理 | 功能用途 |
 |--------|----------|
 | `msmodelslim-model-analysis` | 适配前分析：实现来源解析、结构/MoE/逐层加载等风险评估；DiT/扩散场景下识别 `model_family=dit` 并索取 `inference_repo` |
-| `msmodelslim-model-adapt` | 模型适配与验证（统一入口）：LLM/VLM 走主流程；`model_family=dit` 走多模态生成扩展节（适配器生成 + 四步验证） |
-| `msmodelslim-anti-outlier-adapt` | 基础适配验证通过后：用已安装 msModelSlim API 提取逐算法 DOT 图并执行独立 logits 门禁 |
+| `msmodelslim-model-adapt` | 基础模型适配、源码安装和四步验证；LLM/VLM 走主流程，`model_family=dit` 走扩展节 |
+| `msmodelslim-anti-outlier-adapt` | 所选算法接口与映射适配、源码安装和验证后，用已安装 msModelSlim API 提取逐算法 DOT 图并执行独立 logits 门禁 |
 
 > DiT 适配细节与四步验证由 `msmodelslim-model-adapt` 的 DiT 扩展节承载（工作流见 `msmodelslim-model-adapt/references/dit/adaptation_workflow.md`），orchestrator 仅负责按 `model_family` 路由与产物串联——分析回传 `next_step: model-adapt` 后委派 `msmodelslim-model-adapt`，与 LLM/VLM 委派方式一致。
 
@@ -22,7 +22,7 @@
 
 ### 1. 检查模型是否已支持
 
-查询用户提供的 `model_type` 是否已在 `msmodelslim/config/config.ini` 的 `[ModelAdapter]` 中注册。注意 `model_type` 不是模型权重路径中 `config.json` 里的 `model_type`，一般形如 `Qwen3-32B`、`DeepSeek-V3`。如果已注册且基础适配四步验证有效，则跳过基础适配；选定算法的逐算法 DOT、logits 门禁或汇总报告不完整时仍须执行独立的离群值抑制流程。
+查询用户提供的 `model_type` 是否已在 `msmodelslim/config/config.ini` 的 `[ModelAdapter]` 中注册。注意 `model_type` 不是模型权重路径中 `config.json` 里的 `model_type`，一般形如 `Qwen3-32B`、`DeepSeek-V3`。如果已注册且基础适配四步验证有效，可跳过基础适配；所选算法接口及映射的源码适配、安装和验证由离群值抑制阶段完成。选定算法的逐算法 DOT、logits 门禁或汇总报告不完整时仍须执行独立门禁。
 
 ### 2. 委派模型分析
 
@@ -37,7 +37,7 @@
 
 ### 4. 委派离群值抑制适配
 
-只有步骤 3 的基础适配及四步验证全部通过后才进入此步骤，单独调用
+步骤 3 的基础适配和四步验证通过后，单独调用
 `msmodelslim-anti-outlier-adapt` 完成，主 Agent 不代为执行。用户未指定算法时执行默认四项
 `quarot`、`flex_smooth_quant`、`flex_awq_ssz`、`iter_smooth`；用户明确指定时执行其所选
 子集。每项从同一原始 checkpoint 单独加载干净模型、只应用一个 processor、记录最终 logits，
@@ -45,6 +45,10 @@
 `anti_outlier_report.md`，不向后续调优流程输出能力矩阵。执行配置读取 msModelSlim 官方
 `*_default` 模板；不得在 msAgent 仓库新增结构扫描、hook 或 formatter 脚本，不得依赖源码树
 `docs/zh`。
+此阶段在源码适配并安装所选算法接口与映射，接口验证通过后才能启动该算法门禁；不得修改
+`site-packages`。各算法失败后独立留痕，并撤回本次新增且仅供该算法使用的适配代码；
+共享接口仍被通过算法使用时保留。源码变更后重装并验证 Adapter。此时尚未生成候选
+Practice YAML，离群值抑制阶段不处理 YAML。
 
 ### 5. 最终验证
 
@@ -53,11 +57,13 @@
 - [ ] 模型适配已完成，适配器已注册
 - [ ] 模型权重文件完整可加载
 - [ ] 模型可在目标设备（NPU）上正常执行前向推理
-- [ ] 已通过 msModelSlim `fast_ops_grapher` 为每个选定算法生成非空 DOT 图
-- [ ] 每个选定算法均已独立完成 processor 与变换前后浮点 logits 门禁
+- [ ] 所选算法接口与映射已在离群值抑制阶段完成源码适配、安装并验证
+- [ ] 已为启动门禁的算法生成非空 DOT 图并记录每项结果
+- [ ] 每项已通过算法均独立完成 processor 与变换前后浮点 logits 门禁；失败项已留痕并撤回其本次新增的专用适配代码
 - [ ] 已生成包含逐算法对比结果和逐算法图链接的 `anti_outlier_report.md`
 
-若上述任何步骤失败，须向用户明确报告原因并停止流程。
+基础适配或接口前置检查失败时停止相应阶段并修复；逐算法门禁失败时报告原因，
+其他算法继续。调优只检查已安装 Adapter 的对应接口，不读取门禁文件。
 
 ## 注意事项
 
@@ -130,7 +136,7 @@ DiT 路径（`model_family ∈ dit` 且 `next_step: model-adapt`）额外必填�
 | `save_path` | string | | 适配工作目录 |
 | `inference_repo` | string | | DiT/扩散专用：推理仓绝对路径（取自分析回传的 `output.inference_repo`）；LLM/VLM 不需要 |
 
-回传 `output` 必填：`adapter_registered`，`verification_steps`（四步全 `passed: true` 即通过），`artifact_paths`（可选），`commands`（须含 `install` 与 `verification_step1`～`verification_step4`）；
+回传 `output` 必填：`adapter_registered`，`verification_steps`（四步全 `passed: true` 即通过），`artifact_paths`，`commands`（须含 `install`、`verification_step1`～`verification_step4`）；
 DiT 路径（`model_family ∈ dit`）额外必填：`model_family`（`dit`），`inference_repo`，`artifact_paths`（含 `adapter_py` / `config_ini`）
 
 委派模板（LLM/VLM 用）：
@@ -173,4 +179,3 @@ DiT 路径（`model_family ∈ dit`）额外必填：`model_family`（`dit`）�
 ### 关于原 quant-tuning-analyze-dit
 
 DiT 分析已并入 `msmodelslim-model-analysis`（统一分析），DiT 适配器生成与四步验证由 `msmodelslim-model-adapt` 的 DiT 扩展节承接——两个阶段均通过上文两个 Agent 节的字段契约委派，无需独立 subagent。
-

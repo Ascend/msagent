@@ -86,13 +86,6 @@ description: 为 msModelSlim 创建基础 Transformers 模型适配器（Model A
 - 实现与验证指引：
   - 详见独立 Skill：`msmodelslim-layer-wise-quantization`
 
-### 7. 离群值抑制适配交接
-
-离群值抑制是基础模型适配之后的独立流程，不属于本 Skill 的适配实现或四步验证。本 Skill
-只在适配器已注册且 `msmodelslim-adapter-verification` 四步全部通过后，向
-`msmodelslim-anti-outlier-adapt` 交付模型路径、适配器入口、checkpoint 身份和验证产物路径。
-验证未通过时不得启动离群值抑制，也不得把其 logits 结果当作基础适配通过的证据。
-
 ---
 
 ## 多模态生成扩展（DiT / 扩散）

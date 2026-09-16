@@ -16,7 +16,7 @@ _common_dir = Path(__file__).resolve().parents[2] / "msmodelslim-tools-common" /
 if str(_common_dir) not in sys.path:
     sys.path.insert(0, str(_common_dir))
 
-from script_utils import emit_result, ensure_msmodelslim
+from script_utils import emit_result, ensure_msmodelslim  # noqa: E402
 from shared import get_lab_practice_dir  # noqa: E402
 
 
@@ -44,7 +44,6 @@ def practice_repo_finalize(
         model_adapter = PluginModelFactory().create(model_type, Path(model_path), trust_remote_code)
         practice_dict = yaml_safe_load(final_practice_path)
         practice_obj = PracticeConfig.model_validate(practice_dict)
-
         if practice_manager.is_saving_supported() and isinstance(model_adapter, ModelInfoInterface):
             practice_manager.save_practice(
                 model_pedigree=model_adapter.get_model_pedigree(),

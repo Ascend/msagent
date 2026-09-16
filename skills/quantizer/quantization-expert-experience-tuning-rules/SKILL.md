@@ -84,9 +84,10 @@ Skill 范围内。
 5. **模型专属策略**：L3 命中项。
 6. **建议顺序与风险**、**YAML 变更记录**与专家意见可信度。
 
-进入调优阶段时，本 Skill 必须向用户提供以下 4 项离群值抑制算法
-`quarot`、`flex_smooth_quant`、`flex_awq_ssz`、`iter_smooth`，说明适用场景和风险，并询问
-用户保留全部还是选择子集；用户明确选择后输出：
+进入调优阶段时，先接收调用方基于已安装 Adapter 接口得到的 `supported_algorithms`。
+未收到该集合时，先让调用方完成接口预检，再进行算法选择。本 Skill 只从该集合中
+向用户介绍离群值抑制候选，说明适用场景和风险，再询问选择；
+没有可选算法时不推荐离群值抑制。不得把以下示例中的算法视为当前模型均可选择：
 
 ```yaml
 user_confirmed_anti_outlier_algorithms:
@@ -99,9 +100,8 @@ user_confirmed_anti_outlier_algorithms:
 示例中的空 `config` 表示用户没有覆盖参数；执行阶段仍须读取 msModelSlim 对应的官方
 `*_default` 模板，不能把空对象直接当作 `flex_awq_ssz` 的完整 processor 配置。
 
-该字段只记录用户选择，不代表算法已验证。专家经验不得调用 processor、执行前向或填写
-logits PASS/FAIL。模型适配阶段默认完成 4 项算法的图配置、processor 执行和 logits 门禁，
-与用户选择无关。
+该字段只记录用户选择。专家经验不得调用 processor、执行前向或填写 logits PASS/FAIL；
+离群值抑制阶段负责算法适配与门禁，调优只信任已安装 Adapter 声明的接口。
 
 不得只根据模块名称直接宣称「回退必然提升精度」，须说明原因（如敏感层、结构重要性、误差传播路径）。
 

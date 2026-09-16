@@ -54,18 +54,25 @@ metadata:
 | `round` | `int` | 当前调优轮次，用于生成本轮 Practice 文件名 |
 | `prev_result` | `dict \| None` | 上轮评测结果（EvaluateResult 结构），首轮为 `None` |
 | `anchor_practice` | `str \| None` | 当前已知最优且达标的 Practice YAML 路径（锚点） |
+| `supported_algorithms` | `list[str] \| None` | 编排层在专家经验选择前根据已安装 Adapter 接口取得的可选离群值抑制算法；独立调用时可省略 |
 
 **产出**：`practice_path`（合法的 Practice YAML 文件路径）
 
-**工具**：`msmodelslim analyze`（敏感层分析）、`scripts/validate_practice_yaml.py`（校验）
+**工具**：`scripts/check_anti_outlier_support.py`（接口预检）、`msmodelslim analyze`（敏感层分析）、`scripts/validate_practice_yaml.py`（校验）
 
 ## 执行步骤
+
+**前置可选算法**：编排流程在委派专家经验前运行
+`scripts/check_anti_outlier_support.py --model-type <model_type> --model-path <model_path>`，
+把输出的 `supported_algorithms` 同时传给专家经验与本 Skill。独立调用本 Skill 且未提供该
+列表时，须在选择算法或读取基准 Practice 前自行运行同一预检。只读取已安装 Adapter 的
+接口契约，不读取门禁文件，也不运行 processor/logits 门禁。
 
 ### 步骤总览
 
 ```
         ┌─────────────────────┐
-        │ ① 读取/生成基准      │  ← 确定 schema 与静态量化边界
+        │ ① 读取/生成基准      │  ← 使用前置可选算法，确定 schema 与静态量化边界
         │    Practice         │
         └──────────┬──────────┘
                    ▼
@@ -98,6 +105,10 @@ metadata:
 - 如果你在进行敏感层分析的时候，还有其他卡闲置可用，如果敏感层分析时长较长，则你可以同步地使用其他卡拉起第一轮的量化（注意指定不同的卡，如使用ASCEND_RT_VISIBLE_DEVICES环境变量等方式）以减少串行等待时间。在量化结束后，如果测评需要使用的卡中包含正在进行敏感层分析的卡，则你**必须**等待敏感层分析任务结束后再进行测评任务。
 
 ### ① 读取或生成基准 Practice
+
+只从前置 `supported_algorithms` 中选择离群值抑制算法。无可用算法时不选择离群值抑制；
+已有基准或锚点 Practice 含集合外算法时，先改选合法基准或返回错误。接口预检的
+`--trust-remote-code` 与本次模型加载策略一致。
 
 优先从 Practice 仓库中查找与当前 `model_type` 匹配的已验证 Practice；存在多个候选时，返回候选项，由主 Agent 确认后继续。未找到时，按照 [量化配置格式](references/practice_yaml_format.md) 生成保守基准 Practice，保存为 `{save_path}/practice_base.yaml`。基准 Practice 必须在敏感层分析前确定并通过校验。
 
@@ -136,6 +147,7 @@ metadata:
 - 敏感度得分文件 `{save_path}/analysis_result.yaml`（步骤 ② 产出，各轮复用）
 - 上轮评测结果 `prev_result`（首轮为 `None`）
 - 当前已知最优且达标的配置（锚点）
+- 步骤 ① 的 `supported_algorithms`，用于限制离群值抑制选择范围
 
 **具体动作**：
 
@@ -157,6 +169,7 @@ metadata:
 - 回退级别按层组离散化（如前 2 层、前 4 层、前 4 + 后 4 层……），便于二分搜索
 
 **离群值抑制叠加原则**：
+- 只能选择步骤 ① 预检列入 `supported_algorithms` 的算法
 - 先上单一、简单的抑制（如仅 `iter_smooth`）
 - 确认瓶颈后再考虑更强或组合策略
 - **二分阶段抑制组合固定，只动回退刻度**；摸高阶段才允许切换抑制
@@ -224,4 +237,3 @@ python skills/quantizer/tune-practice-cfg/scripts/validate_practice_yaml.py --pr
 - `metadata.label` 写成字符串而非 dict
 - `valid=false` 仍继续后续步骤
 - 命令行参数 `--device` 未使用 `npu:0` 这种格式，错误地使用了 `DeviceType.NPU`
-

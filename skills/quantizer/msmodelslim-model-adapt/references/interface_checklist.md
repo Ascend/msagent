@@ -22,6 +22,7 @@
 - [ ] `config/config.ini` 的 `[ModelAdapter]` 下已配置模型别名
 - [ ] `config/config.ini` 的 `[ModelAdapterEntryPoints]` 下已配置入口
 - [ ] 代码修改后已重新安装包（`bash install.sh`）
+- [ ] 确认实际导入的 msModelSlim 来自本次源码安装，不直接编辑 `site-packages`
 
 ## DiT / 多模态生成专属检查
 
