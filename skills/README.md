@@ -80,6 +80,7 @@ description: 技能的详细描述，说明它做什么，以及什么时候使�
 | `msmodelslim-model-analysis` | 量化前模型分析 | `先分析这个模型适不适合做适配` |
 | `msmodelslim-model-adapt` | 模型适配 | `帮我做这个模型的适配实现` |
 | `msmodelslim-adapter-verification` | 适配器验证 | `验证这个适配器是否可用` |
+| `msprobe-postprocess-yaml` | 生成 msprobe tensor-postprocess YAML，用于量化模型与浮点模型的 dump 对齐比对 | `给量化模型的 dump 生成 postprocess 配置再和浮点模型比对` |
 | `gen-evaluation-cfg` | 生成评测配置 | `生成一份评测 YAML` |
 
 ### 2.4 算子 Skills
