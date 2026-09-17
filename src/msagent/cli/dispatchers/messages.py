@@ -35,14 +35,13 @@ from msagent.agents.local_context import build_local_environment_context
 from msagent.cli.bootstrap.initializer import initializer
 from msagent.cli.builders import MessageContentBuilder
 from msagent.cli.core.tool_output import ToolOutputEntry
-from msagent.cli.handlers import CompressionHandler, InterruptHandler
-from msagent.cli.theme import console, theme
+from msagent.cli.handlers import InterruptHandler
+from msagent.cli.theme import console
 from msagent.cli.ui.renderer import Renderer
 from msagent.core.constants import OS_VERSION, PLATFORM
 from msagent.core.logging import get_logger
 from msagent.middlewares.token_cost import extract_usage_counts
 from msagent.audit.user_interaction import extract_last_agent_prompt
-from msagent.utils.compression import should_auto_compress
 from msagent.utils.render import TOOL_TIMING_RESPONSE_METADATA_KEY
 
 if TYPE_CHECKING:
@@ -175,7 +174,6 @@ class MessageDispatcher:
         self.session = session
         self.interrupt_handler = InterruptHandler(session=session)
         self.message_builder = MessageContentBuilder(Path(session.context.working_dir))
-        self._pending_compression = False
         self._pending_tool_headers: dict[str, DeferredToolHeader] = {}
 
     async def dispatch(self, content: str) -> None:
@@ -278,7 +276,6 @@ class MessageDispatcher:
         context: AgentContext,
     ) -> None:
         """Stream with automatic interrupt handling loop."""
-        self._pending_compression = False
         current_input: dict[str, Any] | Command = input_data
         rendered_messages: set[str] = set()
         streaming_states: dict[tuple, dict[str, Any]] = {}
@@ -387,12 +384,6 @@ class MessageDispatcher:
                     )
                     break
 
-            if self._pending_compression and not cancelled:
-                self._pending_compression = False
-                try:
-                    await self._execute_compression()
-                except (asyncio.CancelledError, KeyboardInterrupt):
-                    pass
         finally:
             context.retry_notice_handler = None
             self.session.current_stream_task = None
@@ -1626,8 +1617,6 @@ class MessageDispatcher:
 
         if updates:
             self.session.update_context(**updates)
-            # Check if auto-compression should be triggered after token update
-            await self._check_auto_compression()
 
     def _record_messages_for_trace(self, messages: Any) -> None:
         """Record a batch result returned by non-streaming graph invocation."""
@@ -1664,38 +1653,6 @@ class MessageDispatcher:
 
         origin = self._SUBAGENT_ORIGIN_LABEL if indent_level > 0 else None
         recorder.record_tool_result(message, tool_call=tool_call, origin=origin)
-
-    async def _check_auto_compression(self) -> None:
-        """Check if auto-compression should be triggered."""
-        try:
-            ctx = self.session.context
-            config_data = await initializer.load_agents_config(ctx.working_dir)
-            agent_config = config_data.get_agent_config(ctx.agent)
-
-            if (
-                agent_config
-                and agent_config.compression
-                and agent_config.compression.auto_compress_enabled
-                and should_auto_compress(
-                    ctx.current_input_tokens or 0,
-                    ctx.context_window,
-                    agent_config.compression.auto_compress_threshold,
-                )
-            ):
-                self._pending_compression = True
-
-        except Exception as e:
-            logger.warning(f"Auto-compression check failed: {e}", exc_info=True)
-
-    async def _execute_compression(self) -> None:
-        """Execute compression after streaming completes."""
-        ctx = self.session.context
-        usage_pct = int((ctx.current_input_tokens or 0) / ctx.context_window * 100 if ctx.context_window else 0)
-
-        with console.console.status(
-            f"[{theme.spinner_color}]Context at {usage_pct}%, auto-compacting conversation in place...[/{theme.spinner_color}]"
-        ):
-            await CompressionHandler(self.session).handle()
 
     async def resume_from_interrupt(self, thread_id: str, interrupts: list[Interrupt]) -> None:
         """Resume graph from pending interrupts.

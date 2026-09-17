@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 class CompressionConfig(BaseModel):
     auto_compress_enabled: bool = Field(default=True, description="Enable automatic compression")
     auto_compress_threshold: float = Field(
-        default=0.8,
+        default=0.85,
         description="Trigger compression at this context usage ratio (0.0-1.0)",
     )
     llm: LLMConfig | None = Field(
@@ -43,11 +43,11 @@ class CompressionConfig(BaseModel):
         description="Prompt template(s) to use when summarizing conversation history",
     )
     messages_to_keep: int = Field(
-        default=0,
+        default=6,
         description=(
             "Number of most recent non-system messages to preserve verbatim when compressing conversation history"
         ),
-        ge=0,
+        ge=1,
     )
 
 
@@ -312,7 +312,15 @@ class BaseAgentConfig(VersionedConfig):
                 if "compression_llm" in compression and "llm" not in compression:
                     compression["llm"] = compression.pop("compression_llm")
 
-                compression.setdefault("messages_to_keep", 0)
+                if compression.get("messages_to_keep") == 0:
+                    logger.warning(
+                        "Detected legacy compression.messages_to_keep=0; "
+                        "resetting to default value 6 (0 is no longer supported)."
+                    )
+                    compression["messages_to_keep"] = 6
+                else:
+                    compression.setdefault("messages_to_keep", 6)
+
                 default_prompts = [
                     "prompts/shared/general_compression.md",
                     "prompts/suffixes/environments.md",

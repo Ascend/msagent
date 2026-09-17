@@ -28,7 +28,7 @@ The current default configuration is:
 ```yaml
 compression:
   auto_compress_enabled: true
-  auto_compress_threshold: 0.8
+  auto_compress_threshold: 0.85
   llm: default
   prompt:
     - prompts/shared/general_compression.md
@@ -39,8 +39,8 @@ The meaning is as follows:
 
 - `auto_compress_enabled: true`
   - Enables automatic compaction.
-- `auto_compress_threshold: 0.8`
-  - Automatically triggers compaction when the current input context approaches 80% of the model window.
+- `auto_compress_threshold: 0.85`
+  - Automatically triggers compaction when the current input context approaches 85% of the model window.
 - `llm: default`
   - Model used to generate the summary. By default, it reuses the current default model.
 - `prompt`

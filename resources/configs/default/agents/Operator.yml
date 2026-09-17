@@ -25,7 +25,7 @@ skills:
   use_catalog: false
 compression:
   auto_compress_enabled: true
-  auto_compress_threshold: 0.8
+  auto_compress_threshold: 0.85
   llm: default
   prompt:
     - prompts/shared/general_compression.md

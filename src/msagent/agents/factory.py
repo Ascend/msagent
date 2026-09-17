@@ -34,12 +34,13 @@ from deepagents import create_deep_agent
 from deepagents.backends import CompositeBackend, LocalShellBackend
 from deepagents.backends.filesystem import FilesystemBackend
 from deepagents.middleware import MemoryMiddleware, SkillsMiddleware
+from deepagents.middleware.summarization import SummarizationMiddleware
 import httpx
 from langchain.agents.middleware import ToolRetryMiddleware
 from langchain.agents.middleware.types import AgentMiddleware
 
 from msagent.agents.local_context import ensure_local_context_prompt
-from msagent.configs import AgentConfig, BaseAgentConfig, RetryPolicyConfig, SubAgentConfig
+from msagent.configs import AgentConfig, BaseAgentConfig, CompressionConfig, RetryPolicyConfig, SubAgentConfig
 from msagent.core.constants import CONFIG_CONVERSATION_HISTORY_DIR
 from msagent.llms.factory import LLMFactory
 from msagent.middlewares.model_retry import LoggingModelRetryMiddleware
@@ -56,6 +57,7 @@ from msagent.tools.factory import ToolFactory
 from msagent.tools.internal.memory import is_default_memory_content, read_memory_file
 from msagent.tools.web_search import web_search
 from msagent.utils.deepagents_compat import patch_deepagents_windows_absolute_paths
+from msagent.utils.offload import render_compression_summary_prompt
 
 if TYPE_CHECKING:
     from langchain_core.tools import BaseTool
@@ -535,6 +537,15 @@ class AgentFactory:
 
         middleware.append(_SystemMessageMiddleware())
 
+        compression_middleware = None
+        if needs_conversation_history:
+            compression_middleware = self._build_compression_middleware(
+                compression_config=getattr(config, "compression"),
+                main_llm_config=resolved_llm,
+                agent_backend=agent_backend,
+                working_dir=working_dir,
+            )
+
         raw_system_prompt = config.prompt
         if isinstance(raw_system_prompt, list):
             raw_system_prompt = "\n\n".join(str(item) for item in raw_system_prompt)
@@ -587,12 +598,46 @@ class AgentFactory:
         if context_schema is not None:
             kwargs["context_schema"] = context_schema
 
-        graph = create_deep_agent(**kwargs)
+        if compression_middleware is not None:
+            # Reuse the single custom SummarizationMiddleware for the main agent.
+            # deepagents hard-codes its own SummarizationMiddleware in the
+            # standard stack, so without patching we would end up with two
+            # instances sharing the same name and langchain would reject the
+            # graph. The patch also keeps auto and manual compaction aligned on
+            # the exact same instance.
+            import deepagents.graph as deepagents_graph
+
+            original_create_summarization = deepagents_graph.create_summarization_middleware
+            patch_hit = False
+
+            def create_summarization_for_msagent(model_, backend_):
+                nonlocal patch_hit
+                if model_ is model:
+                    patch_hit = True
+                    return compression_middleware
+                return original_create_summarization(model_, backend_)
+
+            deepagents_graph.create_summarization_middleware = create_summarization_for_msagent
+            try:
+                graph = create_deep_agent(**kwargs)
+            finally:
+                deepagents_graph.create_summarization_middleware = original_create_summarization
+
+            if not patch_hit:
+                logger.warning(
+                    "Custom compression patch was never applied: deepagents did "
+                    "not route summarization-middleware creation through the "
+                    "patched factory (the SDK version likely changed). The custom "
+                    "compression configuration may be silently ignored."
+                )
+        else:
+            graph = create_deep_agent(**kwargs)
 
         # Keep CLI-compatible metadata caches for /tools and runtime context.
         setattr(graph, "_agent_backend", agent_backend)
         setattr(graph, "_llm_tools", all_tools)
         setattr(graph, "_tools_in_catalog", list(all_tools))
+        setattr(graph, "_compression_middleware", compression_middleware)
         return graph
 
     @staticmethod
@@ -650,6 +695,41 @@ class AgentFactory:
         if retry_on is not None:
             kwargs["retry_on"] = retry_on
         return LoggingModelRetryMiddleware(**kwargs)
+
+    def _build_compression_middleware(
+        self,
+        *,
+        compression_config: CompressionConfig,
+        main_llm_config: LLMConfig,
+        agent_backend: Any,
+        working_dir: Path,
+    ) -> SummarizationMiddleware:
+        """Build the resident summarization middleware for auto and manual compaction."""
+        compression_llm_config = compression_config.llm or main_llm_config
+        compression_llm = self.llm_factory.create(compression_llm_config)
+
+        summary_prompt = render_compression_summary_prompt(
+            compression_config.prompt,
+            working_dir,
+        )
+
+        trigger: Any = None
+        if compression_config.auto_compress_enabled:
+            context_window = getattr(main_llm_config, "context_window", None)
+            if context_window and context_window > 0:
+                trigger = (
+                    "tokens",
+                    int(context_window * compression_config.auto_compress_threshold),
+                )
+
+        return SummarizationMiddleware(
+            model=compression_llm,
+            backend=agent_backend,
+            trigger=trigger,
+            keep=("messages", compression_config.messages_to_keep),
+            trim_tokens_to_summarize=None,
+            summary_prompt=summary_prompt or "Summarize the conversation so far.",
+        )
 
     @staticmethod
     def _agent_system_prompt_text(prompt: str | list[str]) -> str:

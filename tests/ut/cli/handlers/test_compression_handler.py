@@ -32,6 +32,7 @@ from msagent.utils.offload import ConversationOffloadResult
 class _FakeGraph:
     def __init__(self) -> None:
         self._agent_backend = object()
+        self._compression_middleware = SimpleNamespace(model=SimpleNamespace(), token_counter=lambda _messages: 0)
         self.updated: list[tuple[object, dict]] = []
 
     async def aget_state(self, _config):
@@ -210,6 +211,7 @@ async def test_compression_handler_reports_no_messages(tmp_path: Path, monkeypat
 
     class _EmptyGraph:
         _agent_backend = object()
+        _compression_middleware = SimpleNamespace(model=SimpleNamespace(), token_counter=lambda _messages: 0)
 
         async def aget_state(self, _config):
             return SimpleNamespace(values={"messages": []})
@@ -251,6 +253,7 @@ async def test_compression_handler_reports_backend_unavailable(tmp_path: Path, m
 
     class _NoBackendGraph:
         _agent_backend = None
+        _compression_middleware = SimpleNamespace(model=SimpleNamespace(), token_counter=lambda _messages: 0)
 
         async def aget_state(self, _config):
             return SimpleNamespace(values={"messages": [HumanMessage(content="hello")]})
@@ -294,6 +297,7 @@ async def test_compression_handler_warns_when_already_within_window(
 
     class _FakeGraphWithBackend:
         _agent_backend = object()
+        _compression_middleware = SimpleNamespace(model=SimpleNamespace(), token_counter=lambda _messages: 0)
 
         async def aget_state(self, _config):
             return SimpleNamespace(values={"messages": [HumanMessage(content="hello")]})
