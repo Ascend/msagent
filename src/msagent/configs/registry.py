@@ -20,7 +20,6 @@ from msagent.configs.approval import ToolApprovalConfig
 from msagent.configs.checkpointer import BatchCheckpointerConfig, CheckpointerConfig
 from msagent.configs.llm import BatchLLMConfig, LLMConfig
 from msagent.configs.mcp import MCPConfig
-from msagent.configs.sandbox import BatchSandboxConfig, SandboxConfig
 from msagent.core.constants import (
     CONFIG_AGENTS_DIR,
     CONFIG_AGENTS_FILE_NAME,
@@ -30,7 +29,6 @@ from msagent.core.constants import (
     CONFIG_LLMS_DIR,
     CONFIG_LLMS_FILE_NAME,
     CONFIG_MCP_FILE_NAME,
-    CONFIG_SANDBOXES_DIR,
     CONFIG_SUBAGENTS_DIR,
     CONFIG_SUBAGENTS_FILE_NAME,
 )
@@ -103,7 +101,6 @@ class ConfigRegistry:
         self.agents_dir = self.config_dir / CONFIG_AGENTS_DIR.name
         self.subagents_file = self.config_dir / CONFIG_SUBAGENTS_FILE_NAME.name
         self.subagents_dir = self.config_dir / CONFIG_SUBAGENTS_DIR.name
-        self.sandboxes_dir = self.config_dir / CONFIG_SANDBOXES_DIR.name
         self.mcp_file = self.config_dir / CONFIG_MCP_FILE_NAME.name
         self.approval_file = self.config_dir / CONFIG_APPROVAL_FILE_NAME.name
 
@@ -112,7 +109,6 @@ class ConfigRegistry:
         self._checkpointers: BatchCheckpointerConfig | None = None
         self._agents: BatchAgentConfig | None = None
         self._subagents: BatchSubAgentConfig | None = None
-        self._sandboxes: BatchSandboxConfig | None = None
         self._mcp: MCPConfig | None = None
         self._approval: ToolApprovalConfig | None = None
 
@@ -212,31 +208,6 @@ class ConfigRegistry:
         subagents = await self.load_subagents()
         return subagents.get_subagent_config(name)
 
-    # === Sandbox configs ===
-
-    async def load_sandboxes(self, force_reload: bool = False) -> BatchSandboxConfig:
-        """Load all sandbox configs (cached)."""
-        if self._sandboxes is None or force_reload:
-            await self.ensure_config_dir()
-            defaults = await BatchSandboxConfig.from_yaml(
-                dir_path=self.default_config_dir / CONFIG_SANDBOXES_DIR.name,
-            )
-            overrides: list[SandboxConfig] = []
-            if self.sandboxes_dir.is_dir() and any(self.sandboxes_dir.glob("*.yml")):
-                overrides = (await BatchSandboxConfig.from_yaml(self.sandboxes_dir)).sandboxes
-            self._sandboxes = BatchSandboxConfig(
-                sandboxes=_merge_items(defaults.sandboxes, overrides, lambda item: item.name)
-            )
-        return self._sandboxes
-
-    async def get_sandbox(self, name: str) -> SandboxConfig:
-        """Get single sandbox by name."""
-        sandboxes = await self.load_sandboxes()
-        sandbox = sandboxes.get_sandbox_config(name)
-        if sandbox:
-            return sandbox
-        raise ValueError(f"Sandbox '{name}' not found. Available: {sandboxes.sandbox_names}")
-
     # === Agent configs ===
 
     async def load_agents(self, force_reload: bool = False) -> BatchAgentConfig:
@@ -247,7 +218,6 @@ class ConfigRegistry:
             llm_config = await self.load_llms()
             checkpointer_config = await self.load_checkpointers()
             subagents_config = await self.load_subagents()
-            sandboxes_config = await self.load_sandboxes()
 
             defaults = await BatchAgentConfig.from_yaml(
                 file_path=self.default_config_dir / CONFIG_AGENTS_FILE_NAME.name,
@@ -255,7 +225,6 @@ class ConfigRegistry:
                 batch_llm_config=llm_config,
                 batch_checkpointer_config=checkpointer_config,
                 batch_subagent_config=subagents_config,
-                batch_sandbox_config=sandboxes_config,
             )
             overrides: list[AgentConfig] = []
             if self._source_exists(self.agents_file, self.agents_dir):
@@ -268,7 +237,6 @@ class ConfigRegistry:
                         batch_llm_config=llm_config,
                         batch_checkpointer_config=checkpointer_config,
                         batch_subagent_config=subagents_config,
-                        batch_sandbox_config=sandboxes_config,
                     )
                 ).agents
 
@@ -464,6 +432,5 @@ class ConfigRegistry:
         self._checkpointers = None
         self._agents = None
         self._subagents = None
-        self._sandboxes = None
         self._mcp = None
         self._approval = None

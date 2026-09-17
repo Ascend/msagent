@@ -70,10 +70,6 @@ class AppPaths:
         return self.home / "cache" / "mcp"
 
     @property
-    def sandbox_cache_dir(self) -> Path:
-        return self.home / "cache" / "sandboxes"
-
-    @property
     def mcp_oauth_dir(self) -> Path:
         return self.home / "oauth" / "mcp"
 
@@ -92,7 +88,6 @@ class AppPaths:
             self.skills_dir,
             self.projects_dir,
             self.mcp_cache_dir,
-            self.sandbox_cache_dir,
             self.mcp_oauth_dir,
             self.logs_dir,
         ):

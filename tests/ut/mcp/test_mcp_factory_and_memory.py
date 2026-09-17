@@ -62,7 +62,6 @@ async def test_mcp_factory_create_builds_client_with_timeout_and_tool_factory(
         config=config,
         cache_dir=Path("cache"),
         oauth_dir=Path("oauth"),
-        sandbox_bindings=[{"name": "ignored"}],
         default_invoke_timeout=42.0,
     )
 

@@ -42,7 +42,7 @@ class MCPTransport(StrEnum):
 
     @property
     def is_http(self) -> bool:
-        """HTTP-based transports that cannot be sandboxed."""
+        """HTTP-based transports."""
         return self in {MCPTransport.SSE, MCPTransport.HTTP, MCPTransport.WEBSOCKET}
 
 

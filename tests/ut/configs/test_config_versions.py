@@ -30,7 +30,6 @@ from msagent.core.constants import (
     CHECKPOINTER_CONFIG_VERSION,
     CONFIG_VERSION_TOKEN,
     LLM_CONFIG_VERSION,
-    SANDBOX_CONFIG_VERSION,
 )
 from msagent.utils.version import get_version
 
@@ -80,7 +79,6 @@ def test_config_version_constants_match_project_version() -> None:
     assert AGENT_CONFIG_VERSION == project_version
     assert LLM_CONFIG_VERSION == project_version
     assert CHECKPOINTER_CONFIG_VERSION == project_version
-    assert SANDBOX_CONFIG_VERSION == project_version
 
 
 def test_default_resource_config_versions_match_project_version() -> None:

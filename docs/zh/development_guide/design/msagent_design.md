@@ -34,7 +34,7 @@ Ascend生态下利用Agent调试调优存在几个典型难点：
 | -- | -- |
 | 统一入口 | 通过 `msagent` CLI 暴露统一入口，降低学习和切换成本。 |
 | 领域分治 | 用 Agent + SubAgent + Skill 的组合承载不同领域知识，而不是把所有逻辑塞进一个 Prompt。 |
-| 配置驱动 | LLM、Agent、Checkpointer、MCP、Sandbox、Approval 由安装包默认值和全局用户覆盖共同驱动。 |
+| 配置驱动 | LLM、Agent、Checkpointer、MCP、Approval 由安装包默认值和全局用户覆盖共同驱动。 |
 | 可控扩展 | Tool Pattern、Skill Pattern、MCP include/exclude 共同限定能力边界。 |
 | 稳定运行 | 检查点、重试、超时、审批、中间件和上下文压缩保证长链路对话可持续。 |
 
@@ -308,7 +308,6 @@ resources/configs/default/
 │  └─ ascend-knowledge.yml
 ├─ llms/
 ├─ checkpointers/
-├─ sandboxes/
 ├─ prompts/
 └─ skills/
 
@@ -321,7 +320,6 @@ resources/configs/default/
 │  ├─ subagents/
 │  ├─ llms/
 │  ├─ checkpointers/
-│  └─ sandboxes/
 ├─ prompts/
 ├─ skills/
 ├─ cache/
@@ -347,7 +345,6 @@ resources/configs/default/
 | 场景 | 行为 |
 | -- | -- |
 | 首次进入某个工作目录运行 `msagent` | 创建全局目录和当前项目的 state 目录，不修改工作目录。 |
-| 读取 LLM/Agent/SubAgent/Checkpointer/Sandbox | 按语义键将 `~/.msagent/config/` 中的用户项覆盖到内置默认项。 |
 | 切换 Agent 或 Model | 将当前选择写入项目 `project.json`，不修改或复制内置 Agent 定义。 |
 | 读取 MCP | 按 server name 合并内置定义和 `config/config.mcp.json`。 |
 | 读取审批配置 | 用户文件存在时读取 `config/config.approval.json`，否则直接读取内置默认。 |
@@ -356,7 +353,7 @@ resources/configs/default/
 配置系统的关键特性如下：
 
 - **默认值不复制**：wheel 更新可以直接提供新默认项，用户目录只保存实际覆盖。
-- **目录式扩展**：支持 `agents/*.yml`、`llms/*.yml`、`checkpointers/*.yml`、`sandboxes/*.yml` 等目录化组织方式，便于逐个维护。
+- **目录式扩展**：支持 `agents/*.yml`、`llms/*.yml`、`checkpointers/*.yml` 等目录化组织方式，便于逐个维护。
 - **显式路径注入**：`AppPaths`、`ProjectPaths` 统一控制配置、全局资源和项目状态落点。
 - **强类型校验**：最终都会收敛为 Pydantic 配置对象，保证 Provider、Pattern、超时、审批规则、MCP transport 等关键字段可校验。
 
@@ -781,7 +778,7 @@ MCP 用户覆盖配置位于 `~/.msagent/config/config.mcp.json`。内置服务�
 - 首次运行时只在 `MSAGENT_HOME` 创建目录，工作目录不生成 `.msagent/`。
 - 相同项目路径的 project id 稳定，同名但路径不同的项目状态互相隔离。
 - `config.llms.yml` 与 `llms/*.yml` 混合加载时，别名不重复且 Provider 正常归一化。
-- Agent/SubAgent/Checkpointer/Sandbox 配置能正确解析引用关系。
+- Agent/SubAgent/Checkpointer 配置能正确解析引用关系。
 - 历史字段迁移正常，例如：
   - 老版 `tools: [list]` 自动迁移为 `ToolsConfig`
   - 缺失 `skills`、`retry`、`compression.prompt` 时能补齐默认值

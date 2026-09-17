@@ -215,7 +215,6 @@ class Initializer:
                 config=mcp_config,
                 cache_dir=self.app_paths.mcp_cache_dir,
                 oauth_dir=self.app_paths.mcp_oauth_dir,
-                sandbox_bindings=None,
                 default_invoke_timeout=default_timeout,
             )
             mcp_module_map = dict(getattr(mcp_client, "module_map", {}) or {})
@@ -240,7 +239,6 @@ class Initializer:
                 llm_config=llm_config,
                 skills_dir=runtime_skills_dirs,
                 allowed_skills=filtered_skills,
-                sandbox_bindings=None,
                 interrupt_on=interrupt_on,
             )
 

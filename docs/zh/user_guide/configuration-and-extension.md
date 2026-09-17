@@ -25,7 +25,6 @@
 | `~/.msagent/config/agents/*.yml` | 高级扩展使用的 Agent 最小覆盖或新增定义；正常切换不会生成。 |
 | `~/.msagent/config/subagents/*.yml` | 高级扩展使用的 SubAgent 最小覆盖或新增定义。 |
 | `~/.msagent/config/checkpointers/*.yml` | Checkpointer 覆盖配置。 |
-| `~/.msagent/config/sandboxes/*.yml` | Sandbox 覆盖配置。 |
 | `~/.msagent/prompts/` | 用户 Prompt 文件。 |
 | `~/.msagent/skills/` | 用户安装的 Skills。 |
 | `~/.msagent/config/config.mcp.json` | MCP 服务器覆盖配置。 |
@@ -66,7 +65,6 @@
 - Agent：内置默认值叠加 `~/.msagent/config/config.agents.yml` 与 `config/agents/*.yml`
 - SubAgent：内置默认值叠加 `~/.msagent/config/config.subagents.yml` 与 `config/subagents/*.yml`
 - Checkpointer：内置默认值叠加 `~/.msagent/config/config.checkpointers.yml` 与 `config/checkpointers/*.yml`
-- Sandbox：内置默认值叠加 `~/.msagent/config/sandboxes/*.yml`
 
 默认模板当前以目录式配置为主。
 
