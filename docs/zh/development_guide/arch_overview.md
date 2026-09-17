@@ -113,7 +113,7 @@ MindStudio-Agent 采用模块化架构设计，基于 deepagents 运行时与 La
   - Agent 配置：定义 Agent 的配置结构（AgentConfig）
   - LLM 配置：定义 LLM 的配置结构（LLMConfig）
   - MCP 配置：定义 MCP 服务的配置结构
-  - 其他配置：定义 Checkpointer、Approval、Sandbox 等配置结构
+  - 其他配置：定义 Checkpointer、Approval 等配置结构
   - 注册中心：统一管理配置的加载、缓存与保存
 
 #### 3. Tools 模块
@@ -238,7 +238,6 @@ sequenceDiagram
 - 配置文件中的敏感信息（如 API Key）通过环境变量管理
 - 支持工具执行审批与中断机制（ApprovalConfig / interrupt_on）
 - 支持工具级 include / exclude、超时控制与大结果裁剪
-- 预留 SandboxConfig，用于安全执行代码与运行环境隔离
 
 ### 3.3.2 可维护性设计
 
@@ -284,7 +283,6 @@ sequenceDiagram
       skills_dir: Path | list[Path] | None = None,
       checkpointer: BaseCheckpointSaver | None = None,
       llm_config: LLMConfig | None = None,
-      sandbox_bindings: list[Any] | None = None,
       interrupt_on: dict[str, bool | dict[str, Any]] | None = None,
   ) -> CompiledStateGraph:
   ```
@@ -300,7 +298,6 @@ sequenceDiagram
   | skills_dir | 输入 | Path \| list[Path] \| None | 技能搜索目录 |
   | checkpointer | 输入 | BaseCheckpointSaver \| None | 检查点保存器 |
   | llm_config | 输入 | LLMConfig \| None | 覆盖 Agent 默认配置的 LLM |
-  | sandbox_bindings | 输入 | list[Any] \| None | 预留的沙箱绑定参数 |
   | interrupt_on | 输入 | dict[str, bool \| dict[str, Any]] \| None | 审批/中断规则 |
   | 返回值 | 输出 | CompiledStateGraph | 编译后的 Agent 图 |
 

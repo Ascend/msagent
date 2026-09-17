@@ -21,7 +21,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from msagent.configs import MCPConfig
 from msagent.mcp.client import MCPClient
@@ -39,11 +38,10 @@ class MCPFactory:
         config: MCPConfig,
         cache_dir: Path | None = None,
         oauth_dir: Path | None = None,
-        sandbox_bindings: list[Any] | None = None,
         *,
         default_invoke_timeout: float | None = None,
     ) -> MCPClient:
-        del cache_dir, oauth_dir, sandbox_bindings
+        del cache_dir, oauth_dir
         return MCPClient(
             config=config,
             default_invoke_timeout=default_invoke_timeout,

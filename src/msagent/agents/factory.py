@@ -379,11 +379,8 @@ class AgentFactory:
         allowed_skills: list[Any] | None = None,
         checkpointer: BaseCheckpointSaver | None = None,
         llm_config: LLMConfig | None = None,
-        sandbox_bindings: list[Any] | None = None,
         interrupt_on: dict[str, bool | dict[str, Any]] | None = None,
     ) -> CompiledStateGraph:
-        del sandbox_bindings
-
         patch_third_party_prompt_defaults()
         patch_deepagents_windows_absolute_paths()
         working_dir = (working_dir or Path.cwd()).resolve()

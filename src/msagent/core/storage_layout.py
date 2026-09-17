@@ -26,7 +26,6 @@ LEGACY_HOME_ENTRIES = (
     "subagents/",
     "llms/",
     "checkpointers/",
-    "sandboxes/",
 )
 
 _MANAGED_DIRECTORIES = (
@@ -37,7 +36,6 @@ _MANAGED_DIRECTORIES = (
     "state/projects",
     "cache",
     "cache/mcp",
-    "cache/sandboxes",
     "oauth",
     "oauth/mcp",
     "logs",

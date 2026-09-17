@@ -25,7 +25,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 try:
     load_dotenv(".env")
 except PermissionError:
-    pass  # Sandbox may block .env access
+    pass
 
 if os.getenv("SUPPRESS_GRPC_WARNINGS", "true").lower() == "true":
     os.environ["GRPC_VERBOSITY"] = "NONE"
@@ -106,5 +106,4 @@ class Settings(BaseSettings):
 try:
     settings = Settings()
 except PermissionError:
-    # Sandbox may block .env access, use defaults
     settings = Settings(_env_file=None)  # type: ignore[call-arg]

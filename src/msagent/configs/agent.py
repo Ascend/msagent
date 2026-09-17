@@ -14,7 +14,6 @@ from pydantic import BaseModel, Field, model_validator
 from msagent.configs.base import VersionedConfig
 from msagent.configs.checkpointer import BatchCheckpointerConfig, CheckpointerConfig
 from msagent.configs.llm import BatchLLMConfig, LLMConfig
-from msagent.configs.sandbox import AgentSandboxConfig, BatchSandboxConfig
 from msagent.configs.utils import (
     _load_dir_items,
     _load_single_file,
@@ -268,32 +267,6 @@ class BaseAgentConfig(VersionedConfig):
         except Exception as e:
             logger.debug(f"Failed to copy prompt files: {e}")
 
-    @staticmethod
-    def _copy_missing_sandbox_profiles() -> None:
-        """Copy missing sandbox profile files from defaults (sync, called during migration)."""
-        try:
-            import shutil
-            from importlib.resources import files
-
-            from msagent.core.constants import CONFIG_SANDBOXES_DIR, PLATFORM
-
-            platform_suffix = "macos" if PLATFORM == "Darwin" else "linux"
-
-            template_dir = Path(str(files("resources") / "configs" / "default"))
-            template_sandbox_dir = template_dir / "sandboxes"
-
-            if not template_sandbox_dir.exists():
-                return
-
-            for template_file in template_sandbox_dir.glob(f"*-{platform_suffix}.yml"):
-                target_file = Path.cwd() / CONFIG_SANDBOXES_DIR / template_file.name
-                if not target_file.exists():
-                    target_file.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(template_file, target_file)
-                    logger.warning(f"Copying missing sandbox profile: {template_file.name}")
-        except Exception as e:
-            logger.debug(f"Failed to copy sandbox profiles: {e}")
-
     @classmethod
     def migrate(cls, data: dict, from_version: str) -> dict:
         """Migrate config data from older version."""
@@ -347,10 +320,6 @@ class BaseAgentConfig(VersionedConfig):
                 compression.setdefault("prompt", default_prompts)
 
                 cls._copy_missing_prompts(default_prompts)
-
-        # Migrate 2.2.0 -> 2.2.1: copy default sandbox profiles if missing
-        if from_ver < parse_version("2.2.1"):
-            cls._copy_missing_sandbox_profiles()
 
         # Migrate 2.2.1 -> 2.3.0: add retry configuration (legacy shape)
         if from_ver < parse_version("2.3.0"):
@@ -427,10 +396,6 @@ class AgentConfig(BaseAgentConfig):
     )
     default: bool = Field(default=False, description="Whether this is the default agent")
     subagents: list[SubAgentConfig] | None = Field(default=None, description="List of resolved subagent configurations")
-    sandboxes: AgentSandboxConfig | None = Field(
-        default=None,
-        description="Sandbox configuration for this agent",
-    )
     compression: CompressionConfig | None = Field(
         default=None, description="Compression configuration for context management"
     )
@@ -612,7 +577,6 @@ class BatchAgentConfig(BaseBatchConfig):
         batch_llm_config: BatchLLMConfig | None = None,
         batch_checkpointer_config: BatchCheckpointerConfig | None = None,
         batch_subagent_config: BatchSubAgentConfig | None = None,
-        batch_sandbox_config: BatchSandboxConfig | None = None,
     ) -> BatchAgentConfig:
         """Load agent configurations from YAML files."""
         agents = []
@@ -673,19 +637,6 @@ class BatchAgentConfig(BaseBatchConfig):
                         )
                     resolved_subagents.append(resolved_subagent)
                 agent["subagents"] = resolved_subagents
-
-            if batch_sandbox_config and isinstance(agent.get("sandboxes"), dict):
-                sandboxes_dict = agent["sandboxes"]
-                if profiles := sandboxes_dict.get("profiles"):
-                    for profile in profiles:
-                        sandbox_ref = profile.get("sandbox")
-                        if sandbox_ref and isinstance(sandbox_ref, str):
-                            resolved_sandbox = batch_sandbox_config.get_sandbox_config(sandbox_ref)
-                            if not resolved_sandbox:
-                                raise ValueError(
-                                    f"For agent '{agent['name']}': sandbox '{sandbox_ref}' not found. Available: {batch_sandbox_config.sandbox_names}"
-                                )
-                            profile["sandbox"] = resolved_sandbox
 
             if agent.get("compression"):
                 compression = agent["compression"]

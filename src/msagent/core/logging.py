@@ -140,7 +140,7 @@ def configure_logging(
             abs_log_path = log_file_path.resolve()
             print(f"📝 Logs written to: {abs_log_path}", flush=True)
     except OSError:
-        pass  # Sandbox may block file creation
+        pass
 
     # Suppress urllib3 "I/O operation on closed file" during botocore GC cleanup.
     _install_unraisablehook_filter()
