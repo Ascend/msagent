@@ -26,7 +26,7 @@
 ```yaml
 compression:
   auto_compress_enabled: true
-  auto_compress_threshold: 0.8
+  auto_compress_threshold: 0.85
   llm: default
   prompt:
     - prompts/shared/general_compression.md
@@ -36,15 +36,15 @@ compression:
 含义如下：
 
 - `auto_compress_enabled: true`
-  
+
   开启自动压缩
-- `auto_compress_threshold: 0.8`
-  
-  当前输入上下文接近模型窗口的 80% 时，自动触发压缩
+- `auto_compress_threshold: 0.85`
+
+  当前输入上下文接近模型窗口的 85% 时，自动触发压缩
 - `llm: default`
   - 使用哪个模型来生成摘要；默认复用当前默认模型
 - `prompt`
-  
+
   生成摘要时使用的提示词模板
 
 ## 3. 作为普通用户，怎么使用
@@ -184,16 +184,16 @@ compression:
 字段说明：
 
 - `auto_compress_threshold`
-  
+
   越小越早压缩；例如 `0.7` 表示上下文使用到 70% 就触发
 - `messages_to_keep`
-  
+
   压缩时保留最近多少条非 system 消息不做总结
 - `llm`
-  
+
   可以替换成更便宜或更快的总结模型
 - `prompt`
-  
+
   可以自定义摘要风格，例如更偏“事实记录”或“任务进度记录”
 
 建议：
@@ -270,22 +270,22 @@ compression:
 当前实现的主要入口如下：
 
 - `src/msagent/cli/handlers/compress.py`
-  
+
   当前 CLI 压缩入口
 - `src/msagent/utils/offload.py`
-  
+
   摘要生成、原始消息卸载、摘要事件构造
 - `src/msagent/agents/factory.py`
-  
+
   为 graph 暴露 `_agent_backend`，并把 `conversation_history` 路由到持久目录
 
 当前设计有两个关键点：
 
 - 压缩是 in-place 的
-  
+
   不再新建 thread，而是在当前 thread 上更新 `_summarization_event`
 - 原始历史是可恢复的
-  
+
   通过 `conversation_history/<thread_id>.md` 形成按时间追加的卸载日志
 
 如果后续要继续增强，比较自然的方向有：

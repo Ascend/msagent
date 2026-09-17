@@ -2,25 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import cast
-
 from langchain_core.runnables import RunnableConfig
 
-from msagent.agents.context import AgentContext
-from msagent.agents.local_context import (
-    build_local_environment_context,
-    ensure_local_context_prompt,
-)
 from msagent.cli.bootstrap.initializer import initializer
 from msagent.cli.theme import console, theme
-from msagent.configs import CompressionConfig
-from msagent.core.constants import OS_VERSION, PLATFORM
 from msagent.core.logging import get_logger
-from msagent.utils.compression import calculate_message_tokens
 from msagent.utils.cost import format_tokens
 from msagent.utils.offload import perform_conversation_offload
-from msagent.utils.render import render_templates
 
 logger = get_logger(__name__)
 
@@ -44,11 +32,20 @@ class CompressionHandler:
                 console.print("")
                 return
 
-            compression_config = agent_config.compression or CompressionConfig()
-            prompt_str = compression_config.prompt
-            prepared_prompt = ensure_local_context_prompt(cast(str, prompt_str)) if prompt_str else None
             if self.session.graph is None:
                 console.print_error("Conversation graph is not ready for compression")
+                console.print("")
+                return
+
+            middleware = getattr(self.session.graph, "_compression_middleware", None)
+            if middleware is None:
+                console.print_error("Conversation compression is not configured")
+                console.print("")
+                return
+
+            backend = getattr(self.session.graph, "_agent_backend", None)
+            if backend is None:
+                console.print_error("Conversation backend is unavailable for compression")
                 console.print("")
                 return
 
@@ -62,49 +59,18 @@ class CompressionHandler:
                 console.print("")
                 return
 
-            compression_llm_config = compression_config.llm or agent_config.llm
-            compression_llm = initializer.llm_factory.create(compression_llm_config)
-            now = datetime.now(timezone.utc).astimezone()
-            user_memory = await initializer.load_user_memory(ctx.working_dir)
-            agent_context = AgentContext(
-                approval_mode=ctx.approval_mode,
-                working_dir=ctx.working_dir,
-                platform=PLATFORM,
-                os_version=OS_VERSION,
-                current_date_time_zoned=now.strftime("%Y-%m-%d %H:%M:%S %Z"),
-                local_environment_context=build_local_environment_context(
-                    ctx.working_dir,
-                    now=now,
-                ),
-                mcp_servers=(
-                    ", ".join(initializer.cached_mcp_server_names) if initializer.cached_mcp_server_names else "None"
-                ),
-                user_memory=user_memory,
-                tool_output_max_tokens=ctx.tool_output_max_tokens,
-            )
-            rendered_prompt = (
-                str(render_templates(prepared_prompt, agent_context.template_vars)) if prepared_prompt else None
-            )
-            backend = getattr(self.session.graph, "_agent_backend", None)
-            if backend is None:
-                console.print_error("Conversation backend is unavailable for compression")
-                console.print("")
-                return
-
             original_count = len(messages)
-            original_tokens = calculate_message_tokens(messages, compression_llm)
+            original_tokens = middleware.token_counter(messages)
 
             with console.console.status(
                 f"[{theme.spinner_color}]Offloading {original_count} messages ({format_tokens(original_tokens)} tokens)..."
             ):
                 offload_result = await perform_conversation_offload(
+                    middleware=middleware,
                     messages=messages,
                     prior_event=state_values.get("_summarization_event"),
                     thread_id=ctx.thread_id,
-                    model=compression_llm,
                     backend=backend,
-                    keep_messages=compression_config.messages_to_keep,
-                    summary_prompt=rendered_prompt,
                 )
 
             if offload_result is None:
@@ -139,7 +105,10 @@ class CompressionHandler:
             )
             file_path = offload_result.new_event.get("file_path")
             if file_path:
-                console.print(f"[muted]Conversation history saved to {file_path}[/muted]")
+                conversation_file = (
+                    initializer.get_project_paths(ctx.working_dir).conversation_history_dir / f"{ctx.thread_id}.md"
+                )
+                console.print(f"[muted]Conversation history saved to {conversation_file}[/muted]")
             if offload_result.offload_warning:
                 console.print_warning(offload_result.offload_warning)
             console.print("")

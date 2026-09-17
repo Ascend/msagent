@@ -1009,15 +1009,6 @@ async def test_update_token_tracking_falls_back_to_ai_message_usage_metadata(
     session = _build_session(tmp_path)
     dispatcher = MessageDispatcher(session)
 
-    async def fake_check_auto_compression() -> None:
-        return None
-
-    monkeypatch.setattr(
-        dispatcher,
-        "_check_auto_compression",
-        fake_check_auto_compression,
-    )
-
     await dispatcher._update_token_tracking(
         {
             "messages": [
@@ -1044,15 +1035,6 @@ async def test_update_token_tracking_accepts_overwrite_wrapped_messages(
 ) -> None:
     session = _build_session(tmp_path)
     dispatcher = MessageDispatcher(session)
-
-    async def fake_check_auto_compression() -> None:
-        return None
-
-    monkeypatch.setattr(
-        dispatcher,
-        "_check_auto_compression",
-        fake_check_auto_compression,
-    )
 
     await dispatcher._update_token_tracking(
         {
@@ -1152,15 +1134,6 @@ async def test_finalize_streaming_updates_context_from_usage_only_chunk(
         render_tool_message=lambda *args, **kwargs: None,
     )
     dispatcher = MessageDispatcher(session)
-
-    async def fake_check_auto_compression() -> None:
-        return None
-
-    monkeypatch.setattr(
-        dispatcher,
-        "_check_auto_compression",
-        fake_check_auto_compression,
-    )
 
     streaming_states = {
         (): {

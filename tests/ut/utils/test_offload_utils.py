@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -66,7 +67,8 @@ class _FakeSummarizationMiddleware:
         trim_tokens_to_summarize=None,
         summary_prompt: str,
     ) -> None:
-        del model, backend, trim_tokens_to_summarize
+        del backend, trim_tokens_to_summarize
+        self.model = model
         self.keep = keep
         self.summary_prompt = summary_prompt
         type(self).last_summary_prompt = summary_prompt
@@ -101,32 +103,33 @@ class _FakeSummarizationMiddleware:
             return cutoff
         return event["cutoff_index"] + cutoff - 1
 
+    def token_counter(self, messages) -> int:
+        total = 0
+        for message in messages:
+            content = message.content
+            total += len(content) if isinstance(content, str) else 1
+        return total
 
-def _fake_token_count(messages, _model) -> int:
-    total = 0
-    for message in messages:
-        content = message.content
-        total += len(content) if isinstance(content, str) else 1
-    return total
+
+def _make_middleware(*, backend, keep, summary_prompt) -> _FakeSummarizationMiddleware:
+    return _FakeSummarizationMiddleware(
+        model=SimpleNamespace(),
+        backend=backend,
+        keep=keep,
+        summary_prompt=summary_prompt,
+    )
 
 
 @pytest.mark.asyncio
-async def test_perform_conversation_offload_summarizes_and_persists_history(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        offload_module,
-        "SummarizationMiddleware",
-        _FakeSummarizationMiddleware,
-    )
-    monkeypatch.setattr(
-        offload_module,
-        "calculate_message_tokens",
-        _fake_token_count,
-    )
-
+async def test_perform_conversation_offload_summarizes_and_persists_history() -> None:
     backend = _FakeBackend()
+    middleware = _make_middleware(
+        backend=backend,
+        keep=("messages", 1),
+        summary_prompt="Summarize {conversation}",
+    )
     result = await offload_module.perform_conversation_offload(
+        middleware=middleware,
         messages=[
             HumanMessage(content="user-1"),
             AIMessage(content="assistant-1"),
@@ -134,10 +137,7 @@ async def test_perform_conversation_offload_summarizes_and_persists_history(
         ],
         prior_event=None,
         thread_id="thread-1",
-        model=SimpleNamespace(),
         backend=backend,
-        keep_messages=1,
-        summary_prompt="Summarize {conversation}",
     )
 
     assert result is not None
@@ -151,22 +151,15 @@ async def test_perform_conversation_offload_summarizes_and_persists_history(
 
 
 @pytest.mark.asyncio
-async def test_perform_conversation_offload_warns_when_backend_write_fails(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        offload_module,
-        "SummarizationMiddleware",
-        _FakeSummarizationMiddleware,
-    )
-    monkeypatch.setattr(
-        offload_module,
-        "calculate_message_tokens",
-        _fake_token_count,
-    )
-
+async def test_perform_conversation_offload_warns_when_backend_write_fails() -> None:
     backend = _FakeBackend(write_error="permission denied")
+    middleware = _make_middleware(
+        backend=backend,
+        keep=("messages", 1),
+        summary_prompt="Summarize",
+    )
     result = await offload_module.perform_conversation_offload(
+        middleware=middleware,
         messages=[
             HumanMessage(content="user-1"),
             AIMessage(content="assistant-1"),
@@ -174,9 +167,7 @@ async def test_perform_conversation_offload_warns_when_backend_write_fails(
         ],
         prior_event=None,
         thread_id="thread-2",
-        model=SimpleNamespace(),
         backend=backend,
-        keep_messages=1,
     )
 
     assert result is not None
@@ -185,34 +176,121 @@ async def test_perform_conversation_offload_warns_when_backend_write_fails(
 
 
 @pytest.mark.asyncio
-async def test_perform_conversation_offload_supports_zero_keep_messages(
+async def test_perform_conversation_offload_skips_degenerate_chained_compaction() -> None:
+    backend = _FakeBackend()
+    middleware = _make_middleware(
+        backend=backend,
+        keep=("messages", 2),
+        summary_prompt="Summarize",
+    )
+    prior_event = {
+        "cutoff_index": 4,
+        "summary_message": HumanMessage(content="prior-summary"),
+        "file_path": None,
+    }
+    result = await offload_module.perform_conversation_offload(
+        middleware=middleware,
+        messages=[
+            HumanMessage(content="m0"),
+            AIMessage(content="m1"),
+            HumanMessage(content="m2"),
+            AIMessage(content="m3"),
+            HumanMessage(content="m4"),
+            AIMessage(content="m5"),
+        ],
+        prior_event=prior_event,
+        thread_id="thread-4",
+        backend=backend,
+    )
+
+    assert result is None
+
+
+def test_event_cutoff_rejects_bool_cutoff_index() -> None:
+    event = {
+        "cutoff_index": True,  # bool is an int subclass but must not count as 1
+        "summary_message": HumanMessage(content="summary"),
+        "file_path": None,
+    }
+    assert offload_module._event_cutoff(event) == 0
+
+
+def test_event_cutoff_returns_cutoff_index() -> None:
+    event = {
+        "cutoff_index": 3,
+        "summary_message": HumanMessage(content="summary"),
+        "file_path": None,
+    }
+    assert offload_module._event_cutoff(event) == 3
+    assert offload_module._event_cutoff(None) == 0
+
+
+def test_render_compression_summary_prompt_should_return_none_when_prompt_is_empty() -> None:
+    assert offload_module.render_compression_summary_prompt(None, Path(".")) is None
+    assert offload_module.render_compression_summary_prompt("", Path(".")) is None
+    assert offload_module.render_compression_summary_prompt([], Path(".")) is None
+
+
+def test_render_compression_summary_prompt_should_replace_conversation_with_messages_when_rendering(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(
         offload_module,
-        "SummarizationMiddleware",
-        _FakeSummarizationMiddleware,
+        "build_local_environment_context",
+        lambda working_dir, now=None: "ENV",
     )
-    monkeypatch.setattr(
-        offload_module,
-        "calculate_message_tokens",
-        _fake_token_count,
+    rendered = offload_module.render_compression_summary_prompt(
+        "Summarize: {conversation}",
+        tmp_path,
     )
+    assert rendered is not None
+    assert "Summarize: {messages}" in rendered
+    assert "{conversation}" not in rendered
+    assert "ENV" in rendered
 
-    backend = _FakeBackend()
-    result = await offload_module.perform_conversation_offload(
-        messages=[
-            HumanMessage(content="user-1"),
-            AIMessage(content="assistant-1"),
-        ],
-        prior_event=None,
-        thread_id="thread-3",
-        model=SimpleNamespace(),
+
+class _AppendingBackend:
+    def __init__(self) -> None:
+        self.storage: dict[str, str] = {"/conversation_history/thread-x.md": "OLD"}
+        self.edits: list[tuple[str, str, str]] = []
+
+    async def adownload_files(self, paths: list[str]):
+        path = paths[0]
+        content = self.storage.get(path)
+        if content is None:
+            return [SimpleNamespace(content=None, error="file_not_found")]
+        return [SimpleNamespace(content=content.encode("utf-8"), error=None)]
+
+    async def awrite(self, path: str, content: str):
+        self.storage[path] = content
+        return SimpleNamespace(error=None)
+
+    async def aedit(self, path: str, old: str, new: str):
+        self.edits.append((path, old, new))
+        self.storage[path] = new
+        return SimpleNamespace(error=None)
+
+
+@pytest.mark.asyncio
+async def test_offload_messages_to_backend_should_append_when_history_exists() -> None:
+    backend = _AppendingBackend()
+    middleware = _make_middleware(
         backend=backend,
-        keep_messages=0,
+        keep=("messages", 1),
+        summary_prompt="Summarize",
+    )
+    path = await offload_module.offload_messages_to_backend(
+        [HumanMessage(content="new-message")],
+        middleware,
+        thread_id="thread-x",
+        backend=backend,
     )
 
-    assert result is not None
-    assert result.messages_offloaded == 2
-    assert result.messages_kept == 0
-    assert result.new_event["cutoff_index"] == 2
+    assert path == "/conversation_history/thread-x.md"
+    updated = backend.storage["/conversation_history/thread-x.md"]
+    assert updated.startswith("OLD")
+    assert "new-message" in updated
+    assert len(backend.edits) == 1
+    assert backend.edits[0][0] == "/conversation_history/thread-x.md"
+    assert backend.edits[0][1] == "OLD"

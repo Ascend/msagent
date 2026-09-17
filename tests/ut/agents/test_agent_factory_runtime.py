@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from functools import partial
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
@@ -1118,3 +1119,133 @@ async def test_logging_model_retry_middleware_awrap_model_call_emits_retry_notic
     assert notices[0].scope == "llm"
     assert notices[0].attempt == 1
     assert notices[0].max_retries == 1
+
+
+def _make_compression_factory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[AgentFactory, dict[str, object]]:
+    captured: dict[str, object] = {}
+
+    class _FakeSummarizationMiddleware:
+        def __init__(self, **kwargs) -> None:
+            captured.update(kwargs)
+
+    monkeypatch.setattr(factory_module, "SummarizationMiddleware", _FakeSummarizationMiddleware)
+    monkeypatch.setattr(
+        factory_module,
+        "render_compression_summary_prompt",
+        lambda prompt, working_dir: "rendered-prompt",
+    )
+    factory = AgentFactory(
+        llm_factory=SimpleNamespace(create=lambda _config: SimpleNamespace()),
+        tool_factory=SimpleNamespace(),
+    )
+    return factory, captured
+
+
+def test_build_compression_middleware_should_set_token_trigger_when_auto_compress_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    factory, captured = _make_compression_factory(monkeypatch)
+    compression_config = SimpleNamespace(
+        auto_compress_enabled=True,
+        auto_compress_threshold=0.5,
+        llm=None,
+        prompt="Summarize",
+        messages_to_keep=6,
+    )
+    middleware = factory._build_compression_middleware(
+        compression_config=compression_config,
+        main_llm_config=SimpleNamespace(context_window=1000),
+        agent_backend=object(),
+        working_dir=Path("."),
+    )
+    assert middleware is not None
+    assert captured["trigger"] == ("tokens", 500)
+    assert captured["keep"] == ("messages", 6)
+    assert captured["summary_prompt"] == "rendered-prompt"
+
+
+def test_build_compression_middleware_should_not_set_trigger_when_auto_compress_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    factory, captured = _make_compression_factory(monkeypatch)
+    compression_config = SimpleNamespace(
+        auto_compress_enabled=False,
+        auto_compress_threshold=0.85,
+        llm=None,
+        prompt="Summarize",
+        messages_to_keep=4,
+    )
+    factory._build_compression_middleware(
+        compression_config=compression_config,
+        main_llm_config=SimpleNamespace(context_window=1000),
+        agent_backend=object(),
+        working_dir=Path("."),
+    )
+    assert captured["trigger"] is None
+    assert captured["keep"] == ("messages", 4)
+
+
+def test_build_compression_middleware_should_not_set_trigger_when_context_window_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    factory, captured = _make_compression_factory(monkeypatch)
+    compression_config = SimpleNamespace(
+        auto_compress_enabled=True,
+        auto_compress_threshold=0.85,
+        llm=None,
+        prompt="Summarize",
+        messages_to_keep=6,
+    )
+    factory._build_compression_middleware(
+        compression_config=compression_config,
+        main_llm_config=SimpleNamespace(),
+        agent_backend=object(),
+        working_dir=Path("."),
+    )
+    assert captured["trigger"] is None
+    assert captured["keep"] == ("messages", 6)
+
+
+def test_build_compression_middleware_should_prefer_compression_llm_when_separately_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created_configs: list[object] = []
+
+    class _FakeSummarizationMiddleware:
+        def __init__(self, **kwargs) -> None:
+            del kwargs
+
+    def fake_create(config):
+        created_configs.append(config)
+        return SimpleNamespace()
+
+    monkeypatch.setattr(factory_module, "SummarizationMiddleware", _FakeSummarizationMiddleware)
+    monkeypatch.setattr(
+        factory_module,
+        "render_compression_summary_prompt",
+        lambda prompt, working_dir: "rendered-prompt",
+    )
+    factory = AgentFactory(
+        llm_factory=SimpleNamespace(create=fake_create),
+        tool_factory=SimpleNamespace(),
+    )
+
+    compression_llm_config = SimpleNamespace(model="compression-model")
+    compression_config = SimpleNamespace(
+        auto_compress_enabled=False,
+        auto_compress_threshold=0.85,
+        llm=compression_llm_config,
+        prompt="Summarize",
+        messages_to_keep=6,
+    )
+    factory._build_compression_middleware(
+        compression_config=compression_config,
+        main_llm_config=SimpleNamespace(context_window=1000),
+        agent_backend=object(),
+        working_dir=Path("."),
+    )
+
+    assert len(created_configs) == 1
+    assert created_configs[0] is compression_llm_config
