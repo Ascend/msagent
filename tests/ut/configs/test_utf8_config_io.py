@@ -16,7 +16,6 @@
 # See the Mulan PSL v2 for more details.
 # -------------------------------------------------------------------------
 
-import builtins
 import json
 from pathlib import Path
 
@@ -71,78 +70,57 @@ llm:
     assert config.agents[0].prompt == PROMPT_TEXT
 
 
-def test_tool_approval_config_reads_and_writes_utf8(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_tool_approval_config_utf8_round_trip_and_temp_cleanup(tmp_path: Path) -> None:
     config_path = tmp_path / "config.approval.json"
-    config_path.write_text(
-        json.dumps(
-            {
-                "interrupt_on": {
-                    "run_tool": {
-                        "allowed_decisions": ["approve", "reject"],
-                        "description": f"approval-hint:{CHINESE_TEXT}",
-                    }
-                }
-            },
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
-    )
-
-    original_open = builtins.open
-
-    def strict_open(file, mode="r", *args, **kwargs):
-        if "b" not in mode and "encoding" not in kwargs:
-            raise AssertionError(f"encoding is required for {file}")
-        return original_open(file, mode, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "open", strict_open)
-
-    config = ToolApprovalConfig.from_json_file(config_path)
-    config.save_to_json_file(config_path)
-
-    assert config.interrupt_on["run_tool"].description == f"approval-hint:{CHINESE_TEXT}"
-    saved = json.loads(config_path.read_text(encoding="utf-8"))
-    assert saved["interrupt_on"]["run_tool"]["description"] == f"approval-hint:{CHINESE_TEXT}"
-    assert "decision_rules" in saved
-
-
-def test_tool_approval_config_migrates_legacy_shape_to_interrupt_on_and_decision_rules(
-    tmp_path: Path,
-) -> None:
-    config_path = tmp_path / "config.approval.json"
-    config_path.write_text(
-        json.dumps(
-            {"always_ask": [{"name": "run_command", "args": {"command": "sudo\\s+.*"}}]},
-            ensure_ascii=False,
-        ),
-        encoding="utf-8",
-    )
-
-    config = ToolApprovalConfig.from_json_file(config_path)
-    saved = json.loads(config_path.read_text(encoding="utf-8"))
-
-    assert "execute" in config.interrupt_on
-    assert config.resolve_decision("execute", {"command": "sudo whoami"}) == "ask"
-    assert config.resolve_decision("execute", {"command": "echo ok"}) == "always_approve"
-    assert "interrupt_on" in saved
-    assert "execute" in saved["interrupt_on"]
-    assert "decision_rules" in saved
-    assert "always_ask" not in saved
-
-
-def test_tool_approval_config_prepends_persistent_rule(tmp_path: Path) -> None:
-    config_path = tmp_path / "config.approval.json"
-    config = ToolApprovalConfig.from_json_file(config_path)
-
+    config = ToolApprovalConfig()
     config.prepend_decision_rule(
         tool_name="execute",
-        tool_args={"command": "python dangerous.py"},
+        tool_args={"command": f"echo {CHINESE_TEXT}"},
         decision="always_reject",
     )
-    config.save_to_json_file(config_path)
 
+    config.save_to_json_file(config_path)
     reloaded = ToolApprovalConfig.from_json_file(config_path)
-    assert reloaded.resolve_decision("execute", {"command": "python dangerous.py"}) == "always_reject"
+
+    assert reloaded.resolve_decision("execute", {"command": f"echo {CHINESE_TEXT}"}) == "always_reject"
+    assert CHINESE_TEXT in config_path.read_text(encoding="utf-8")
+    assert not list(tmp_path.glob(".config.approval.json.*.tmp"))
+
+
+@pytest.mark.parametrize("content", ["{broken", '"not-an-object"', "invalid-utf8"])
+def test_tool_approval_config_corrupt_file_falls_back_to_empty(tmp_path: Path, content: str) -> None:
+    config_path = tmp_path / "config.approval.json"
+    if content == "invalid-utf8":
+        config_path.write_bytes(b"\xff")
+    else:
+        config_path.write_text(content, encoding="utf-8")
+
+    config = ToolApprovalConfig.from_json_file(config_path)
+
+    assert config.decision_rules == []
+
+
+def test_tool_approval_config_merges_each_update_with_latest_file(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.approval.json"
+
+    first = ToolApprovalConfig.prepend_rule_to_json_file(
+        config_path,
+        tool_name="execute",
+        tool_args={"command": "python first.py"},
+        decision="always_approve",
+    )
+    second = ToolApprovalConfig.prepend_rule_to_json_file(
+        config_path,
+        tool_name="execute",
+        tool_args={"command": "python second.py"},
+        decision="always_reject",
+    )
+
+    assert len(first.decision_rules) == 1
+    assert len(second.decision_rules) == 2
+    reloaded = ToolApprovalConfig.from_json_file(config_path)
+    assert reloaded.resolve_decision("execute", {"command": "python first.py"}) == "always_approve"
+    assert reloaded.resolve_decision("execute", {"command": "python second.py"}) == "always_reject"
 
 
 @pytest.mark.asyncio

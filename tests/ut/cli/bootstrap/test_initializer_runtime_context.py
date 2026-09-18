@@ -26,7 +26,6 @@ import pytest
 
 from msagent.agents.context import AgentContext
 from msagent.cli.bootstrap.initializer import Initializer
-from msagent.configs import ToolApprovalConfig
 from msagent.core.paths import AppPaths
 from msagent.skills.factory import Skill
 
@@ -88,9 +87,6 @@ async def test_initializer_passes_agent_context_schema_to_agent_factory(
     registry = SimpleNamespace(
         get_agent=AsyncMock(return_value=agent_config),
         load_mcp=AsyncMock(return_value=mcp_config),
-        load_approval=lambda: ToolApprovalConfig.model_validate(
-            {"interrupt_on": {"execute": {"allowed_decisions": ["approve", "reject"]}}}
-        ),
     )
     monkeypatch.setattr(init, "get_registry", lambda _wd: registry)
 
@@ -122,7 +118,10 @@ async def test_initializer_passes_agent_context_schema_to_agent_factory(
     assert create_mock.await_args.kwargs["context_schema"] is AgentContext
     assert create_mock.await_args.kwargs["project_state_dir"] == app_paths.for_project(tmp_path).root
     assert create_mock.await_args.kwargs["skills_dir"] is None
-    assert create_mock.await_args.kwargs["interrupt_on"] == {"execute": {"allowed_decisions": ["approve", "reject"]}}
+    interrupt_on = create_mock.await_args.kwargs["interrupt_on"]
+    assert interrupt_on["execute"]["allowed_decisions"] == ["approve", "reject"]
+    assert isinstance(interrupt_on["execute"]["description"], str)
+    assert interrupt_on["execute"]["description"]
     await cleanup()
 
 

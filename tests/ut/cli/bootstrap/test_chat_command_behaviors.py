@@ -33,6 +33,7 @@ def _args(tmp_path: Path, **overrides: object) -> SimpleNamespace:
         "model": "default",
         "working_dir": str(tmp_path),
         "approval_mode": "active",
+        "execute_approval_mode": None,
         "stream": True,
         "trace_jsonl": None,
         "message": None,
@@ -73,6 +74,7 @@ async def test_handle_chat_command_sends_once_when_message_is_provided(
         model="default",
         working_dir=tmp_path,
         approval_mode="active",
+        execute_approval_mode=None,
         stream_output=False,
         trace_jsonl=trace_path,
     )

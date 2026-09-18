@@ -114,3 +114,43 @@ def test_command_dispatcher_showmemory_is_registered_without_typo_alias(tmp_path
 
     assert dispatcher.commands["/showmemory"] == dispatcher.cmd_showmemory
     assert "/shommemory" not in dispatcher.commands
+
+
+def test_command_dispatcher_registers_permissions_command(tmp_path: Path) -> None:
+    dispatcher = CommandDispatcher(_build_session(tmp_path))
+
+    assert dispatcher.commands["/permissions"] == dispatcher.cmd_permissions
+
+
+def test_command_dispatcher_permissions_mode_switches_session(tmp_path: Path, monkeypatch) -> None:
+    session = _build_session(tmp_path)
+    session.execute_approval_mode = None
+    dispatcher = CommandDispatcher(session)
+    monkeypatch.setattr("msagent.cli.handlers.permissions.console.print_success", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("msagent.cli.handlers.permissions.console.print", lambda *_args, **_kwargs: None)
+
+    import asyncio
+
+    asyncio.run(dispatcher.dispatch("/permissions mode safe"))
+
+    assert session.execute_approval_mode == "safe"
+
+
+def test_command_dispatcher_permissions_clear_project_resets_rules(tmp_path: Path, monkeypatch) -> None:
+    session = _build_session(tmp_path)
+    session.context.state_dir = tmp_path
+    dispatcher = CommandDispatcher(session)
+    monkeypatch.setattr("msagent.cli.handlers.permissions.console.print_success", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("msagent.cli.handlers.permissions.console.print", lambda *_args, **_kwargs: None)
+
+    approval_file = tmp_path / "config.approval.json"
+    approval_file.write_text(
+        '{\n  "decision_rules": [\n    {"name": "execute", "args": {"command": "^echo$"}, "decision": "always_approve"}\n  ]\n}\n',
+        encoding="utf-8",
+    )
+
+    import asyncio
+
+    asyncio.run(dispatcher.dispatch("/permissions clear-project"))
+
+    assert '"decision_rules": []' in approval_file.read_text(encoding="utf-8")

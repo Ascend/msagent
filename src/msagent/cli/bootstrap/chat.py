@@ -17,6 +17,7 @@ async def handle_chat_command(args) -> int:
             model=args.model,
             working_dir=Path(args.working_dir),
             approval_mode=args.approval_mode,
+            execute_approval_mode=getattr(args, "execute_approval_mode", None),
             stream_output=getattr(args, "stream", True),
             trace_jsonl=Path(args.trace_jsonl) if getattr(args, "trace_jsonl", None) else None,
         )

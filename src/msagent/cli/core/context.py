@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from msagent.cli.bootstrap.initializer import initializer
 from msagent.cli.bootstrap.timer import timer
-from msagent.configs import ApprovalMode, LLMProvider
+from msagent.configs import ApprovalMode, ExecuteApprovalMode, LLMProvider
 from msagent.audit import resolve_audit_log_enabled
 from msagent.core.logging import get_logger
 
@@ -25,6 +25,7 @@ class Context(BaseModel):
     working_dir: Path
     state_dir: Path | None = None
     approval_mode: ApprovalMode = ApprovalMode.ACTIVE
+    execute_approval_mode: ExecuteApprovalMode | None = None
     bash_mode: bool = False
     current_input_tokens: int | None = None
     current_output_tokens: int | None = None
@@ -65,6 +66,7 @@ class Context(BaseModel):
         model: str | None,
         approval_mode: ApprovalMode | None,
         working_dir: Path,
+        execute_approval_mode: ExecuteApprovalMode | None = None,
         stream_output: bool = True,
         trace_jsonl: Path | None = None,
     ) -> "Context":
@@ -107,6 +109,7 @@ class Context(BaseModel):
             working_dir=working_dir,
             state_dir=initializer.get_project_paths(working_dir).root,
             approval_mode=approval_mode or ApprovalMode.ACTIVE,
+            execute_approval_mode=execute_approval_mode,
             context_window=llm_config.context_window,
             recursion_limit=agent_config.recursion_limit,
             tool_output_max_tokens=tool_output_max_tokens,

@@ -12,6 +12,7 @@ from msagent.cli.handlers import (
     MCPHandler,
     MemoryHandler,
     ModelHandler,
+    PermissionsHandler,
     SkillsHandler,
     ToolOutputHandler,
     ThreadsHandler,
@@ -35,6 +36,7 @@ class CommandDispatcher:
         self.model_handler = ModelHandler(session)
         self.mcp_handler = MCPHandler(session)
         self.memory_handler = MemoryHandler(session)
+        self.permissions_handler = PermissionsHandler(session)
         self.tools_handler = ToolsHandler(session)
         self.skills_handler = SkillsHandler(session)
         self.threads_handler = ThreadsHandler(session)
@@ -53,6 +55,7 @@ class CommandDispatcher:
             "/skills": self.cmd_skills,
             "/add-skill": self.cmd_add_skill,
             "/mcp": self.cmd_mcp,
+            "/permissions": self.cmd_permissions,
             "/remember": self.cmd_remember,
             "/showmemory": self.cmd_showmemory,
             "/offload": self.cmd_offload,
@@ -134,6 +137,10 @@ class CommandDispatcher:
     async def cmd_mcp(self, args: list[str]) -> None:
         """Handle MCP management command."""
         await self.mcp_handler.handle()
+
+    async def cmd_permissions(self, args: list[str]) -> None:
+        """Manage execute approval mode and project approval rules."""
+        await self.permissions_handler.handle(args)
 
     async def cmd_remember(self, args: list[str]) -> None:
         """Save durable memory. Usage: /remember <content>."""

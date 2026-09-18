@@ -193,11 +193,7 @@ class Initializer:
                 llm_config = None
 
         with timer("Load approval config"):
-            load_approval = getattr(registry, "load_approval", None)
-            if callable(load_approval):
-                approval_config = load_approval()
-            else:
-                approval_config = ToolApprovalConfig()
+            approval_config = ToolApprovalConfig()
             interrupt_on = approval_config.to_interrupt_on_payload()
 
         with timer("Create checkpointer"):

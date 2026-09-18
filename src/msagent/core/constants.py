@@ -47,7 +47,6 @@ APP_VERSION = _detect_package_version()
 CONFIG_DIR_NAME = f".{APP_NAME}"
 CONFIG_MCP_FILE_NAME = Path(f"{CONFIG_DIR_NAME}/config.mcp.json")
 CONFIG_MCP_FILE = "config.mcp.json"  # Short name for compatibility
-CONFIG_APPROVAL_FILE_NAME = Path(f"{CONFIG_DIR_NAME}/config.approval.json")
 CONFIG_LANGGRAPH_FILE_NAME = Path(f"{CONFIG_DIR_NAME}/langgraph.json")
 CONFIG_LLMS_FILE_NAME = Path(f"{CONFIG_DIR_NAME}/config.llms.yml")
 CONFIG_CHECKPOINTERS_FILE_NAME = Path(f"{CONFIG_DIR_NAME}/config.checkpointers.yml")

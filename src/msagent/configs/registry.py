@@ -16,14 +16,12 @@ from msagent.configs.agent import (
     BatchSubAgentConfig,
     SubAgentConfig,
 )
-from msagent.configs.approval import ToolApprovalConfig
 from msagent.configs.checkpointer import BatchCheckpointerConfig, CheckpointerConfig
 from msagent.configs.llm import BatchLLMConfig, LLMConfig
 from msagent.configs.mcp import MCPConfig
 from msagent.core.constants import (
     CONFIG_AGENTS_DIR,
     CONFIG_AGENTS_FILE_NAME,
-    CONFIG_APPROVAL_FILE_NAME,
     CONFIG_CHECKPOINTERS_DIR,
     CONFIG_CHECKPOINTERS_FILE_NAME,
     CONFIG_LLMS_DIR,
@@ -102,15 +100,12 @@ class ConfigRegistry:
         self.subagents_file = self.config_dir / CONFIG_SUBAGENTS_FILE_NAME.name
         self.subagents_dir = self.config_dir / CONFIG_SUBAGENTS_DIR.name
         self.mcp_file = self.config_dir / CONFIG_MCP_FILE_NAME.name
-        self.approval_file = self.config_dir / CONFIG_APPROVAL_FILE_NAME.name
-
         # Lazy-loaded caches
         self._llms: BatchLLMConfig | None = None
         self._checkpointers: BatchCheckpointerConfig | None = None
         self._agents: BatchAgentConfig | None = None
         self._subagents: BatchSubAgentConfig | None = None
         self._mcp: MCPConfig | None = None
-        self._approval: ToolApprovalConfig | None = None
 
     # === Setup ===
 
@@ -282,24 +277,6 @@ class ConfigRegistry:
         config.to_json(self.mcp_file)
         self._mcp = config
 
-    # === Approval config ===
-
-    def load_approval(self, force_reload: bool = False) -> ToolApprovalConfig:
-        """Load tool approval config (cached)."""
-        if self._approval is None or force_reload:
-            source = (
-                self.approval_file
-                if self.approval_file.is_file()
-                else self.default_config_dir / CONFIG_APPROVAL_FILE_NAME.name
-            )
-            self._approval = ToolApprovalConfig.from_json_file(source)
-        return self._approval
-
-    def save_approval(self, config: ToolApprovalConfig) -> None:
-        """Save approval config to file."""
-        config.save_to_json_file(self.approval_file)
-        self._approval = config
-
     # === User memory ===
 
     async def load_user_memory(self) -> str:
@@ -433,4 +410,3 @@ class ConfigRegistry:
         self._agents = None
         self._subagents = None
         self._mcp = None
-        self._approval = None

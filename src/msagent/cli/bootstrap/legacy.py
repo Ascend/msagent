@@ -66,6 +66,8 @@ Optional arguments:
       --timer                              Enable startup timing.
   -am, --approval-mode {semi-active,active,aggressive}
                                            Tool approval mode [default: active]
+      --execute-approval-mode {safe,convenience}
+                                           Preset shell execute approval mode for non-interactive runs.
       --trace-jsonl <FILE>                 Write JSONL trace events to this file.
 
 Examples:
@@ -306,6 +308,12 @@ def _add_runtime_options(parser: argparse.ArgumentParser, *, include_timer: bool
         help="Tool approval mode (default: active)",
     )
     parser.add_argument(
+        "--execute-approval-mode",
+        choices=["safe", "convenience"],
+        default=None,
+        help="Preset shell execute approval mode for non-interactive runs",
+    )
+    parser.add_argument(
         "--trace-jsonl",
         default=None,
         help="Write JSONL trace events to this file",
@@ -338,6 +346,7 @@ async def _handle_chat(args: argparse.Namespace) -> int:
         timer=args.timer,
         server=False,
         approval_mode=args.approval_mode,
+        execute_approval_mode=args.execute_approval_mode,
         verbose=args.verbose,
         stream=args.stream,
         trace_jsonl=args.trace_jsonl,
