@@ -23,6 +23,8 @@ class MsagentRuntime:
     artifact_dir: Path
     extra_env: dict[str, str]
     executable: str = "msagent"
+    timeout_seconds: float | None = None
+    execute_approval_mode: str | None = None
     _invocation_index: int = field(default=0, init=False, repr=False)
 
     def run(self, prompt: str, *, agent_name: str | None = None) -> RunResult:
@@ -35,6 +37,8 @@ class MsagentRuntime:
             agent_name=agent_name,
             executable=self.executable,
             artifact_dir=invocation_dir,
+            timeout_seconds=self.timeout_seconds,
+            execute_approval_mode=self.execute_approval_mode,
         )
         logger.info("msagent trace retained at %s", result.trace_path)
         return result

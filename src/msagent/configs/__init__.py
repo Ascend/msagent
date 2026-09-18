@@ -35,11 +35,11 @@ from msagent.configs.agent import (
 )
 from msagent.configs.approval import (
     ApprovalMode,
+    ExecuteApprovalMode,
     InterruptOnRule,
     ToolDecision,
     ToolDecisionRule,
     ToolApprovalConfig,
-    ToolApprovalRule,
 )
 from msagent.configs.base import VersionedConfig
 from msagent.configs.checkpointer import (
@@ -84,11 +84,11 @@ __all__ = [
     "MCPTransport",
     # Approval
     "ApprovalMode",
+    "ExecuteApprovalMode",
     "InterruptOnRule",
     "ToolDecision",
     "ToolDecisionRule",
     "ToolApprovalConfig",
-    "ToolApprovalRule",
     # Registry
     "ConfigRegistry",
     # Utils

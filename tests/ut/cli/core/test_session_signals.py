@@ -46,6 +46,24 @@ def _patch_prompt_setup(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(InteractivePrompt, "_setup_session", fake_setup_session)
 
 
+def test_session_reads_initial_execute_approval_mode_from_context(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_prompt_setup(monkeypatch)
+    context = _build_context()
+    context.execute_approval_mode = "convenience"
+
+    session = Session(context)
+
+    assert session.execute_approval_mode == "convenience"
+
+
+def test_session_defaults_execute_approval_mode_to_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_prompt_setup(monkeypatch)
+
+    session = Session(_build_context())
+
+    assert session.execute_approval_mode is None
+
+
 class _FakeGraphContext:
     async def __aenter__(self) -> object:
         return object()

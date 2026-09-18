@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -14,7 +15,6 @@ from prompt_toolkit.keys import Keys
 from prompt_toolkit.shortcuts import CompleteStyle
 from typing_extensions import NotRequired, TypedDict
 
-from msagent.cli.bootstrap.initializer import initializer
 from msagent.cli.theme import console
 from msagent.cli.ui.shared import (
     build_agent_prompt,
@@ -22,7 +22,7 @@ from msagent.cli.ui.shared import (
     create_prompt_style,
 )
 from msagent.audit.user_interaction import build_user_response_fields
-from msagent.configs import ToolApprovalConfig, ToolDecisionRule
+from msagent.configs import ExecuteApprovalMode, ToolApprovalConfig, ToolDecisionRule
 from msagent.core.logging import get_logger
 from msagent.middlewares.approval import InterruptPayload
 
@@ -30,6 +30,35 @@ if TYPE_CHECKING:
     from langgraph.types import Interrupt
 
 logger = get_logger(__name__)
+
+SWITCH_TO_CONVENIENCE = "Switch to Convenience Mode"
+PROJECT_APPROVAL_FILE_NAME = "config.approval.json"
+BLACKLIST_PATTERNS = (
+    r"(?:^|[;&|]\s*)rm(?:\s+|$).*",
+    r"(?:^|[;&|]\s*)del(?:\s+|$).*",
+    r"(?:^|[;&|]\s*)remove-item(?:\s+|$).*",
+    r"(?:^|[;&|]\s*)rmdir(?:\s+|$).*",
+    r"git\s+push.*",
+    r"git\s+reset\s+--hard.*",
+    r"sudo\s+.*",
+)
+WRAPPED_COMMAND_PATTERNS = (
+    r"(?:^|\s)(?:\S*[\\/])?(?:bash|sh|dash|zsh|ksh)(?:\.exe)?\s+(?:\S+\s+)*-[a-z]*c(?:\s|$)",
+    r"(?:^|\s)(?:\S*[\\/])?cmd(?:\.exe)?\s+(?:\S+\s+)*/(?:c|k)(?:\s|$)",
+    r"(?:^|\s)(?:\S*[\\/])?(?:powershell|pwsh)(?:\.exe)?\s+"
+    r"(?:\S+\s+)*-(?:command|encodedcommand)(?:\s|$)",
+    r"(?:^|\s)(?:\S*[\\/])?(?:python|python3|py)(?:\.exe)?\s+(?:\S+\s+)*-c(?:\s|$)",
+    r"(?:^|\s)xargs(?:\s+[^;&|]+)?\s+(?:rm|del|remove-item|rmdir)(?:\s|$)",
+    r"\$\(",
+    r"`[^`]+`",
+)
+WHITELIST_PATTERNS = (
+    r"^\s*ls(?:\s+.*)?\s*$",
+    r"^\s*pwd(?:\s+.*)?\s*$",
+    r"^\s*ps(?:\s+.*)?\s*$",
+    r"^\s*echo(?:\s+.*)?\s*$",
+    r"^\s*git\s+status(?:\s+.*)?\s*$",
+)
 
 
 class HITLActionRequest(TypedDict):
@@ -52,6 +81,14 @@ class HITLRequest(TypedDict):
 
     action_requests: list[HITLActionRequest]
     review_configs: list[HITLReviewConfig]
+
+
+class CommandRiskLevel(TypedDict):
+    """Risk classification for one shell command."""
+
+    category: str
+    default_decision: str
+    persistence_scope: str
 
 
 class InterruptHandler:
@@ -139,8 +176,7 @@ class InterruptHandler:
         if not actions:
             return None, False
 
-        approval_config = self._load_approval_config()
-        should_persist = False
+        approval_config = self._load_project_approval_config()
         user_interacted = False
         review_by_action = {str(config.get("action_name", "")): config for config in review_configs}
         decisions: list[dict[str, Any]] = []
@@ -149,6 +185,12 @@ class InterruptHandler:
             tool_args = action.get("args")
             if not isinstance(tool_args, dict):
                 tool_args = {}
+
+            mode_prompted = await self._ensure_execute_approval_mode(tool_name=tool_name)
+            if mode_prompted is None and tool_name == "execute":
+                return None, user_interacted
+            if mode_prompted:
+                user_interacted = True
 
             config: HITLReviewConfig = review_by_action.get(
                 tool_name,
@@ -162,10 +204,15 @@ class InterruptHandler:
             if not options:
                 options = ["approve", "reject"]
 
+            command_profile = self._classify_command(
+                tool_name=tool_name,
+                tool_args=tool_args,
+            )
             policy = self._resolve_decision(
                 approval_config=approval_config,
                 tool_name=tool_name,
                 tool_args=tool_args,
+                command_profile=command_profile,
             )
             if policy == "always_approve":
                 decisions.append({"type": "approve"})
@@ -179,47 +226,51 @@ class InterruptHandler:
                 )
                 continue
 
-            if "approve" in options:
-                options.append("always_approve")
-            if "reject" in options:
-                options.append("always_reject")
-            options = list(dict.fromkeys(options))
+            if policy == "approve":
+                decisions.append({"type": "approve"})
+                continue
+
+            options = self._approval_options(
+                allowed=options,
+                command_profile=command_profile,
+            )
 
             selected = await self._prompt_hitl_decision(
                 tool_name=tool_name,
                 tool_args=tool_args,
                 description=action.get("description"),
                 options=options,
+                command_profile=command_profile,
             )
             if selected is None:
                 return None, user_interacted
 
             user_interacted = True
 
+            if selected == SWITCH_TO_CONVENIENCE:
+                self._set_execute_approval_mode("convenience")
+                decisions.append({"type": "approve"})
+                continue
+
             if selected == "always_approve":
-                if self._should_keep_execute_approval_session_only(tool_name=tool_name, tool_args=tool_args):
-                    self._prepend_session_decision_rule(
-                        tool_name=tool_name,
-                        tool_args=tool_args,
-                        decision="always_approve",
-                    )
-                else:
-                    approval_config.prepend_decision_rule(
-                        tool_name=tool_name,
-                        tool_args=tool_args,
-                        decision="always_approve",
-                    )
-                    should_persist = True
+                self._persist_decision(
+                    approval_config=approval_config,
+                    tool_name=tool_name,
+                    tool_args=tool_args,
+                    decision="always_approve",
+                    scope=command_profile["persistence_scope"],
+                )
                 decisions.append({"type": "approve"})
                 continue
 
             if selected == "always_reject":
-                approval_config.prepend_decision_rule(
+                self._persist_decision(
+                    approval_config=approval_config,
                     tool_name=tool_name,
                     tool_args=tool_args,
                     decision="always_reject",
+                    scope=command_profile["persistence_scope"],
                 )
-                should_persist = True
                 decisions.append(
                     {
                         "type": "reject",
@@ -230,9 +281,6 @@ class InterruptHandler:
 
             decisions.append(self._selection_to_decision(selected))
 
-        if should_persist:
-            self._save_approval_config(approval_config)
-
         return {"decisions": decisions}, user_interacted
 
     async def _prompt_hitl_decision(
@@ -242,6 +290,7 @@ class InterruptHandler:
         tool_args: dict[str, Any],
         description: str | None,
         options: list[str],
+        command_profile: CommandRiskLevel,
     ) -> str | None:
         """Prompt user for one HITL decision."""
         args_text = json.dumps(tool_args, ensure_ascii=False)
@@ -252,19 +301,13 @@ class InterruptHandler:
             question_parts.append("Tool execution requires approval.")
         question_parts.append(f"Tool: {tool_name}")
         question_parts.append(f"Args: {args_text}")
+        if tool_name == "execute":
+            question_parts.append(f"Mode: {self._get_execute_approval_mode() or 'unset'}")
+            question_parts.append(f"Policy: {command_profile['category']}")
         if "always_approve" in options:
-            if self._should_keep_execute_approval_session_only(tool_name=tool_name, tool_args=tool_args):
-                question_parts.append(
-                    "Warning: choosing always_approve will apply only to this session for the same call."
-                )
-            else:
-                question_parts.append(
-                    "Warning: choosing always_approve will persist a local rule and auto-approve the same call later."
-                )
+            question_parts.append(self._always_rule_note("always_approve", command_profile["persistence_scope"]))
         if "always_reject" in options:
-            question_parts.append(
-                "Note: choosing always_reject will persist a local rule and auto-reject the same call later."
-            )
+            question_parts.append(self._always_rule_note("always_reject", command_profile["persistence_scope"]))
         question = "\n".join(question_parts)
 
         return await self._prompt_from_options(question=question, options=options)
@@ -275,11 +318,71 @@ class InterruptHandler:
         approval_config: ToolApprovalConfig,
         tool_name: str,
         tool_args: dict[str, Any],
+        command_profile: CommandRiskLevel | None = None,
     ) -> str:
         for rule in self._session_decision_rules():
             if rule.matches_call(tool_name, tool_args):
                 return rule.decision
-        return approval_config.resolve_decision(tool_name, tool_args)
+
+        command_profile = command_profile or self._classify_command(tool_name=tool_name, tool_args=tool_args)
+        if command_profile["category"] == "blacklist":
+            return command_profile["default_decision"]
+
+        persisted = approval_config.resolve_decision(tool_name, tool_args)
+        if persisted in {"always_approve", "always_reject"}:
+            return persisted
+        return command_profile["default_decision"]
+
+    async def _ensure_execute_approval_mode(self, *, tool_name: str) -> bool | None:
+        """Prompt once per session for shell approval behavior."""
+        if tool_name != "execute":
+            return False
+        if self._get_execute_approval_mode() is not None:
+            return False
+
+        selected = await self._prompt_execute_approval_mode()
+        if selected is None:
+            return None
+        self._set_execute_approval_mode(selected)
+        return True
+
+    async def _prompt_execute_approval_mode(self) -> ExecuteApprovalMode | None:
+        """Ask the user which shell approval mode to use for this session."""
+        question = "\n".join(
+            [
+                "First command execution: choose shell approval mode.",
+                "Safe Mode: whitelist commands auto-approve; blacklist and ordinary commands ask.",
+                "Convenience Mode: whitelist and ordinary commands auto-approve; blacklist asks.",
+            ]
+        )
+        selected = await self._prompt_from_options(
+            question=question,
+            options=["Safe Mode", "Convenience Mode"],
+        )
+        if selected == "Safe Mode":
+            return "safe"
+        if selected == "Convenience Mode":
+            return "convenience"
+        return None
+
+    def _get_execute_approval_mode(self) -> ExecuteApprovalMode | None:
+        mode = getattr(self.session, "execute_approval_mode", None)
+        if mode in {"convenience", "safe"}:
+            return cast(ExecuteApprovalMode, mode)
+        return None
+
+    def _set_execute_approval_mode(self, mode: ExecuteApprovalMode) -> None:
+        setattr(self.session, "execute_approval_mode", mode)
+
+    def _project_approval_path(self) -> Path:
+        state_dir = getattr(self.session.context, "state_dir", None)
+        if state_dir is None:
+            raise RuntimeError("Project state directory is required for approval rules")
+        state_dir = Path(state_dir)
+        return state_dir / PROJECT_APPROVAL_FILE_NAME
+
+    def _load_project_approval_config(self) -> ToolApprovalConfig:
+        return ToolApprovalConfig.from_json_file(self._project_approval_path())
 
     def _session_decision_rules(self) -> list[ToolDecisionRule]:
         rules = getattr(self.session, "approval_session_rules", None)
@@ -300,9 +403,153 @@ class InterruptHandler:
         config.prepend_decision_rule(tool_name=tool_name, tool_args=tool_args, decision=decision)
         rules[:] = config.decision_rules
 
+    def _persist_decision(
+        self,
+        *,
+        approval_config: ToolApprovalConfig,
+        tool_name: str,
+        tool_args: dict[str, Any],
+        decision: str,
+        scope: str,
+    ) -> None:
+        if scope == "project":
+            merged_config = ToolApprovalConfig.prepend_rule_to_json_file(
+                self._project_approval_path(),
+                tool_name=tool_name,
+                tool_args=tool_args,
+                decision=cast(Any, decision),
+            )
+            approval_config.decision_rules = merged_config.decision_rules
+            return
+        self._prepend_session_decision_rule(
+            tool_name=tool_name,
+            tool_args=tool_args,
+            decision=decision,
+        )
+
+    def _approval_options(
+        self,
+        *,
+        allowed: list[str],
+        command_profile: CommandRiskLevel,
+    ) -> list[str]:
+        options = list(allowed)
+        if "approve" in allowed:
+            options.append("always_approve")
+        if "reject" in allowed:
+            options.append("always_reject")
+        if self._get_execute_approval_mode() == "safe":
+            options.append(SWITCH_TO_CONVENIENCE)
+        return list(dict.fromkeys(options))
+
+    def _classify_command(self, *, tool_name: str, tool_args: dict[str, Any]) -> CommandRiskLevel:
+        if tool_name != "execute":
+            return {
+                "category": "non-execute",
+                "default_decision": "ask",
+                "persistence_scope": "project",
+            }
+
+        command_segments = self._split_command_segments(self._extract_execute_command(tool_args))
+        if any(
+            self._matches_any(command, BLACKLIST_PATTERNS + WRAPPED_COMMAND_PATTERNS) for command in command_segments
+        ):
+            return {
+                "category": "blacklist",
+                "default_decision": "ask",
+                "persistence_scope": "session",
+            }
+        if command_segments and all(self._matches_any(command, WHITELIST_PATTERNS) for command in command_segments):
+            return {
+                "category": "whitelist",
+                "default_decision": "approve",
+                "persistence_scope": "session",
+            }
+        if self._get_execute_approval_mode() == "convenience":
+            return {
+                "category": "ordinary",
+                "default_decision": "approve",
+                "persistence_scope": "session",
+            }
+        return {
+            "category": "ordinary",
+            "default_decision": "ask",
+            "persistence_scope": "project",
+        }
+
     @staticmethod
-    def _should_keep_execute_approval_session_only(*, tool_name: str, tool_args: dict[str, Any]) -> bool:
-        return tool_name == "execute" and bool(tool_args)
+    def _matches_any(command: str, patterns: tuple[str, ...]) -> bool:
+        return any(re.search(pattern, command, flags=re.IGNORECASE) for pattern in patterns)
+
+    @staticmethod
+    def _split_command_segments(command: str) -> list[str]:
+        segments: list[str] = []
+        current: list[str] = []
+        quote: str | None = None
+        escaped = False
+        idx = 0
+
+        while idx < len(command):
+            char = command[idx]
+            next_char = command[idx + 1] if idx + 1 < len(command) else ""
+
+            if escaped:
+                current.append(char)
+                escaped = False
+                idx += 1
+                continue
+
+            if char == "\\":
+                current.append(char)
+                escaped = True
+                idx += 1
+                continue
+
+            if quote:
+                current.append(char)
+                if char == quote:
+                    quote = None
+                idx += 1
+                continue
+
+            if char in {"'", '"'}:
+                current.append(char)
+                quote = char
+                idx += 1
+                continue
+
+            if char in {";", "|", "&"}:
+                segment = "".join(current).strip()
+                if segment:
+                    segments.append(segment)
+                current = []
+                idx += 2 if char in {"&", "|"} and next_char == char else 1
+                continue
+
+            current.append(char)
+            idx += 1
+
+        segment = "".join(current).strip()
+        if segment:
+            segments.append(segment)
+        return segments
+
+    @staticmethod
+    def _extract_execute_command(tool_args: dict[str, Any]) -> str:
+        for key in ("command", "cmd"):
+            value = tool_args.get(key)
+            if value is not None:
+                return str(value).strip()
+        return ""
+
+    @staticmethod
+    def _always_rule_note(decision: str, scope: str) -> str:
+        if scope == "project":
+            return (
+                f"Warning: choosing {decision} will persist for this project and auto-apply only when "
+                "a later command has exactly the same command text."
+            )
+        return f"Warning: choosing {decision} will apply only to this session for the same call."
 
     @staticmethod
     def _selection_to_decision(selected: str) -> dict[str, Any]:
@@ -312,25 +559,6 @@ class InterruptHandler:
         if selected == "reject":
             return {"type": "reject"}
         return {"type": "approve"}
-
-    def _load_approval_config(self) -> ToolApprovalConfig:
-        """Load approval config for the current working directory."""
-        try:
-            working_dir = Path(self.session.context.working_dir)
-            registry = initializer.get_registry(working_dir)
-            return registry.load_approval(force_reload=True)
-        except Exception:
-            logger.debug("Failed to load approval config; using defaults", exc_info=True)
-            return ToolApprovalConfig()
-
-    def _save_approval_config(self, config: ToolApprovalConfig) -> None:
-        """Persist approval config for the current working directory."""
-        try:
-            working_dir = Path(self.session.context.working_dir)
-            registry = initializer.get_registry(working_dir)
-            registry.save_approval(config)
-        except Exception:
-            logger.debug("Failed to save approval config", exc_info=True)
 
     async def _get_legacy_choice(self, value: InterruptPayload | dict[str, Any]) -> str | None:
         """Handle legacy question/options style interrupt payload."""

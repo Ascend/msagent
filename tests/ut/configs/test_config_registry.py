@@ -24,7 +24,7 @@ import yaml
 import pytest
 
 from msagent.configs.registry import ConfigRegistry
-from msagent.core.constants import CONFIG_APPROVAL_FILE_NAME, LLM_CONFIG_VERSION
+from msagent.core.constants import LLM_CONFIG_VERSION
 from msagent.core.paths import AppPaths
 from msagent.skills.factory import SkillFactory
 from msagent.tools.internal.memory import DEFAULT_MEMORY_FILE_CONTENT
@@ -82,7 +82,6 @@ async def test_config_registry_bootstraps_default_layout(tmp_path: Path) -> None
 
     agents = await registry.load_agents()
     assert "Profiler" in agents.agent_names
-    assert registry.load_approval().interrupt_on
 
 
 @pytest.mark.asyncio
@@ -271,23 +270,3 @@ async def test_config_registry_empty_override_keeps_packaged_mcp_servers(
     default_names = set(json.loads(default_path.read_text(encoding="utf-8"))["mcpServers"])
 
     assert set(mcp_config.servers) == default_names
-
-
-@pytest.mark.asyncio
-async def test_config_registry_reads_packaged_approval_without_copying_it(
-    tmp_path: Path,
-) -> None:
-    registry, app_paths = _create_registry(tmp_path)
-    config_dir = app_paths.config_dir
-    config_dir.mkdir(parents=True)
-    (config_dir / "config.mcp.json").write_text(
-        json.dumps({"mcpServers": {}}, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-
-    approval_path = config_dir / CONFIG_APPROVAL_FILE_NAME.name
-    approval_config = registry.load_approval()
-
-    assert not approval_path.exists()
-    assert "execute" in approval_config.interrupt_on
-    assert approval_config.decision_rules

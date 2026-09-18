@@ -214,6 +214,8 @@ def msagent_runtime_factory(
             artifact_dir=runtime_artifacts,
             extra_env=extra_env,
             executable=resolved_executable,
+            timeout_seconds=validation_config.msagent.timeout_seconds,
+            execute_approval_mode="convenience",
         )
         runtimes.append(runtime)
         return runtime

@@ -112,6 +112,8 @@ def run_msagent(
     *,
     executable: str = "msagent",
     artifact_dir: str | Path | None = None,
+    timeout_seconds: float | None = None,
+    execute_approval_mode: str | None = None,
 ) -> RunResult:
     """Run msagent and collect stdout, stderr, JSONL traces, and the latest log.
 
@@ -206,6 +208,8 @@ def run_msagent(
     ]
     if agent_name is not None:
         command.extend(["--agent", agent_name])
+    if execute_approval_mode is not None:
+        command.extend(["--execute-approval-mode", execute_approval_mode])
     command.append(prompt)
 
     started_at = time.monotonic()
@@ -218,9 +222,15 @@ def run_msagent(
             encoding="utf-8",
             errors="replace",
             check=False,
+            timeout=timeout_seconds,
         )
     except FileNotFoundError as exc:
         raise RuntimeError("msagent executable was not found; install the whl and activate its environment") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"msagent command timed out after {timeout_seconds} seconds; "
+            "check whether the process is waiting for interactive approval input"
+        ) from exc
     except OSError as exc:
         raise RuntimeError(f"failed to start msagent: {exc}") from exc
     duration_seconds = time.monotonic() - started_at

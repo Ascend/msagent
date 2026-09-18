@@ -23,6 +23,8 @@ export LLM_API_KEY='<your-api-key>'
 
 任意阶段失败脚本立即退出，错误信息打屏，conda 环境自动清理。
 
+验证器中的真实 `msagent` 子进程会通过 `--execute-approval-mode convenience` 预设 shell 命令审批模式，避免 Mock LLM 触发 `execute` 工具时等待首次模式选择。
+
 ### 脚本参数
 
 | 参数 | 必填 | 默认值 | 说明 |
@@ -79,7 +81,8 @@ tests/whl_validator/
 │   ├── test_03_skills.py
 │   ├── test_04_sys_prompt.py
 │   ├── test_05_local_env.py
-│   └── test_06_threads.py
+│   ├── test_06_threads.py
+│   └── test_07_approval_modes.py
 ├── test_fixtures/                 # 测试种子数据（每个用例复制到隔离 workspace）
 │   └── workspace_seed/
 │       ├── read_marker.txt        # 内容：MSAGENT_FILESYSTEM_VALIDATION_OK
@@ -99,6 +102,7 @@ pytest 通过 `pytest-xdist` 的 `-n auto` 按 CPU 核数并行执行。测试�
 | `test_04_sys_prompt.py` | 1. Profiler 和 Accuracy 各自身份、Skill、工具边界不串用<br>2. 运行环境信息（工作目录、OS、Python）已注入且占位符已替换 | Mock LLM 捕获请求 payload<br>不访问真实模型 |
 | `test_05_local_env.py` | 1. `read_file` 正常读取和缺失文件错误处理<br>2. `execute` 相对路径和绝对路径执行脚本<br>3. `msprof-analyze` CLI 可用性 | Mock LLM<br>不需要 API Key<br>依赖 `test_fixtures/workspace_seed/` |
 | `test_06_threads.py` | `/threads` 能从持久化 checkpoint 中发现之前 Mock LLM 创建的会话，并展示其提示词预览 | Mock LLM<br>不需要 API Key |
+| `test_07_approval_modes.py` | 1. Safe Mode / Convenience Mode 下黑名单、白名单、普通命令的默认决策<br>2. `always_approve` 在项目级或会话级的规则写入范围 | Mock session<br>不需要 API Key |
 
 ## 6. 产物结构
 
