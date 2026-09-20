@@ -22,7 +22,7 @@ irm https://raw.gitcode.com/Ascend/msagent/raw/master/scripts/install.ps1 | iex
 
 1. 准备一个可用的 LLM API Key。
 
-   需要用户自行登录模型服务商网站进行创建，常见模型厂商链接如下：
+   需要用户自行登录模型服务商网站进行创建，常见模型服务商链接如下：
 
     | 模型服务商   | 官网链接                               |
     |---------|------------------------------------|

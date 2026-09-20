@@ -95,7 +95,7 @@ msprof op --config=./add_test.json --aic-metrics=Default --output=./output
 | 看源码热点 / 代码行热点 | `Source,Default` | `visualize_data.bin`，通常需 `-g` |
 | 看 L2 / 内存细节 | `MemoryDetail` | L2 命中率、GM 相关搬运量、MTE1/MTE2 活跃带宽 |
 | 看 TimelineDetail 上板指令相关视图 | `TimelineDetail,Default` | 仅 A2/A3 等特定场景支持，限制较多 |
-| 看 Pipe 流水图 | `PipeTimeline` | 仅Ascend 950PR&950DT 系列产品 |
+| 看 Pipe 流水图 | `PipeTimeline` | 仅Ascend 950PR&950DT系列产品 |
 | 只想要最轻量基础信息 | `BasicInfo` | 只生成 `OpBasicInfo.csv` |
 
 ## 6. 结果查看
@@ -124,7 +124,7 @@ msprof op --config=./add_test.json --aic-metrics=Default --output=./output
 
 ### 6.3 `trace.json`
 
-在上板模式里，`trace.json` 主要用于 **通算/通信相关流水图**。  
+在上板模式里，`trace.json` 主要用于 **通算/通信相关流水图**。
 它的语义与 simulator 下的 `trace.json` 不同，不要混用解释。
 
 ## 7. 关键视图怎么解读
@@ -163,7 +163,7 @@ msprof op --config=./add_test.json --aic-metrics=Default --output=./output
 
 ### 7.4 算子代码热点图
 
-左侧通常偏源码维度，右侧偏指令维度。  
+左侧通常偏源码维度，右侧偏指令维度。
 它适合把“耗时高的代码行”和“具体耗时指令”对应起来。
 
 ### 7.5 通算流水图

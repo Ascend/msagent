@@ -53,7 +53,7 @@ cp -r msagent/skills/profiler/ascend-profiler-db-explorer ~/.claude/skills/
 
 | 服务名称 | 领域 | 仓库                                                      |
 |----------|------|---------------------------------------------------------|
-| `msprof-mcp` | Ascend Profiling 数据分析 | [link](https://gitcode.com/kali20gakki1/msprof_mcp.git) |
+| `msprof-mcp` | Ascend Profiling 数据分析 | [link](https://pypi.org/project/msprof-mcp/) |
 
 ### 3.1 msprof-mcp
 
