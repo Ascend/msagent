@@ -2,7 +2,7 @@
 
 msprof命令执行完成后，会生成一个汇总所有性能数据的msprof\_\{时间戳\}.db表结构文件，该文件推荐使用MindStudio Insight工具查看，也可以使用Navicat Premium等数据库开发工具直接打开。当前db文件汇总的性能数据如下：
 
->[!NOTE] 说明 
+>[!NOTE] 说明
 >db文件均以表格形式展示性能数据，且所有数据均以数字映射（例如opName字段下的算子名显示为194），数字与名称的映射表为[STRING\_IDS](#zh-cn_topic_0000002076410600_section116561584178)。
 
 **单位相关**
@@ -598,7 +598,7 @@ RoCE通信接口带宽数据。
 - Ascend PyTorch Profiler的aic\_metrics
 - MindSpore Profiler的aic\_metrics
 
-仅Atlas 200I/500 A2 推理产品和Atlas A2 系列产品支持采集该数据。
+仅Atlas 200I/500 A2推理产品和Atlas A2系列产品支持采集该数据。
 
 **表 33**  格式
 

@@ -28,7 +28,7 @@
 bash build.sh --pkg --soc=<soc_version> --ops=<算子名> --bisheng_flags=sanitizer,ccec_g -j<number_of_threads>
 ```
 
-> `--soc` 按平台（Atlas A2/A3/950）取值，见[架构类型参数获取方式](#10-架构类型参数获取方式)。
+> `--soc` 按平台（Atlas A2/A3/950）取值，见[架构类型参数获取方式](#9-架构类型参数获取方式)。
 > 算子名参考CMakeLists.txt中指定的编译结果名称。
 > `-j` 参数指定编译线程数可以加速编译过程。为保证加编译，需要通过 `nproc` 命令获取 CPU 核心数，然后设置为最大值的一半。
 > `--bisheng_flags` 参数说明：`sanitizer` 注入 msSanitizer 检测桩，`ccec_g` 生成调试信息，多个标志用逗号分隔。
@@ -339,14 +339,14 @@ shmem 仓为昇腾共享内存通信库，通信算子样例位于 `examples/<de
 
 ```shell
 # 检测库本体
-bash scripts/build.sh -soc_type Ascend950 -mssanitizer     # Ascend950 平台
-bash scripts/build.sh -mssanitizer                          # Atlas A2/A3 平台（不带 -soc_type，走默认 Ascend910B 后端）
+bash scripts/build.sh -soc_type Ascend950 -mssanitizer     # Ascend950平台
+bash scripts/build.sh -mssanitizer                          # Atlas A2/A3平台（不带 -soc_type，走默认 Ascend910B 后端）
 
 # 检测 examples 通信算子样例（加 -examples）
 bash scripts/build.sh -soc_type Ascend950 -examples -mssanitizer
 ```
 
-> Ascend950 上是否联编 `--cce-enable-sanitizer` 由 bisheng 版本决定（构建脚本自动选择）：旧版本 CANN 仅添加 `-g`，此时 AscendC API 相关内存检测不可用，如需该能力请升级 CANN 后重新编译。
+> Ascend950上是否联编 `--cce-enable-sanitizer` 由 bisheng 版本决定（构建脚本自动选择）：旧版本 CANN 仅添加 `-g`，此时 AscendC API 相关内存检测不可用，如需该能力请升级 CANN 后重新编译。
 
 编译产物：可执行文件位于 `build/bin/<example>`，库位于 `build/lib/`。
 
@@ -380,14 +380,14 @@ python3 -c "import acl; print(acl.get_soc_name())"
 
 | NPU Name | 产品系列 | `--soc`<br>(ops-transformer/nn/math/cv) | `--npu-arch`<br>(asc-devkit) | `CATLASS_ARCH`<br>(catlass) | `NPU_ARCH`<br>(cann-samples) | `-soc_type`<br>(shmem) |
 |----------|---------|---------------------|------------------|----------------------|----------------------|------------------|
-| Ascend910BX | Atlas A2 训练/推理 | `ascend910b` | `dav-2201` | `2201` | `dav-2201` | 不指定（默认 Ascend910B 后端） |
-| Ascend910_93XX | Atlas A3 训练/推理 | `ascend910_93` | `dav-2201` | `2201` | `dav-2201` | 不指定（默认 Ascend910B 后端） |
+| Ascend910BX | Atlas A2训练/推理 | `ascend910b` | `dav-2201` | `2201` | `dav-2201` | 不指定（默认 Ascend910B 后端） |
+| Ascend910_93XX | Atlas A3训练/推理 | `ascend910_93` | `dav-2201` | `2201` | `dav-2201` | 不指定（默认 Ascend910B 后端） |
 | Ascend950PR/DT | 950系列 | `ascend950` | `dav-3510` | `3510` | `dav-3510` | `Ascend950` |
 
 > **使用要点**：
 > - 各仓参数名与取值格式均不同（如 `dav-2201` vs `2201` vs `ascend910b`），请严格按表头对应仓取用。
 > - **A2 与 A3 仅 ops 系列的 `--soc` 区分**（`ascend910b` vs `ascend910_93`）；在 asc-devkit / catlass / cann-samples 上两平台取值相同。
-> - **shmem 只区分 950 与非 950**：不带 `-soc_type` 时默认 Ascend910B 后端（官方注释说明其覆盖 A2/A3 系列）。
+> - **shmem 只区分 950 与非 950**：不带 `-soc_type` 时默认 Ascend910B 后端（官方注释说明其覆盖A2/A3系列）。
 > - **cann-samples 的 `NPU_ARCH` 为必填项**，缺省会直接报错，合法值仅 `dav-3510` / `dav-2201` 两个。
 ---
 
@@ -434,7 +434,7 @@ ops 系列仓（ops-transformer / ops-nn / ops-math / ops-cv）中 **GE 图模�
 
 1. **定位文件**：`<CANN包根>/python/site-packages/asc_op_compile_base/asc_op_compiler/ascendc_compile_v220.py`（CANN 包根如 `/usr/local/Ascend/ascend-toolkit/<版本>` 或 `cann/<版本>`；找不到可 `find <CANN包根> -name ascendc_compile_v220.py`）。
 2. **确定修改哪个函数**：按目标芯片选择（判断见第 9 节架构类型参数表）：
-   - Ascend 950（A5 系列）→ 修改 `_gen_compile_cmd_c310`；
+   - Ascend 950（A5系列）→ 修改 `_gen_compile_cmd_c310`；
    - Atlas A2 / A3 → 修改 `_gen_compile_cmd_v220`。
 3. **追加检测选项**：在该函数内 `compile_cmd` 的 **`-mllvm` 系列选项之后**追加一行：
    ```python

@@ -62,7 +62,7 @@ python3 build.py --extra VERIFY_WHEEL_INSTALL=1
 如果你不使用脚本，也可以手动执行等价命令：
 
 ```bash
-# 安裝 uv
+# 安装 uv
 pip install uv
 
 # 确认 skills 目录存在

@@ -47,7 +47,7 @@
 - 如果你要初始化环境，请说明是否要使用默认 `myenv`、是否允许安装 `uv` / `requirements.txt`、是否需要设置 `PYTHONPATH` 或 `HF_ENDPOINT`
 - 如果你要的是单点仿真，请说明：模型、device profile、设备数、输入/输出长度、Prefill/Decode 模式
 - 如果你要的是吞吐规划，请说明：模型、硬件、设备数、输入输出长度、SLO、部署模式（聚合 / 分离 / P:D 比例）
-- 如果你要部署服务化自动寻优工具，请说明是否使用默认的阿里云 PyPI 镜像，以及你的运行环境是否为 Ascend 推理系列产品
+- 如果你要部署服务化自动寻优工具，请说明是否使用默认的阿里云 PyPI 镜像，以及你的运行环境是否为昇腾的推理产品
 - 如果你要获取服务化自动寻优参数推荐，请尽量提供：推理框架（mindie/vllm）、硬件信息（单卡显存、world_size、每节点卡数、节点数）、模型 config.json 路径或模型名、业务负载 token 长度、优化目标（throughput/ttft/tpot/balanced）
 
 ## 6. 当前边界说明
@@ -70,8 +70,8 @@
 | 场景 | 示例提示词 |
 |---|---|
 | 环境初始化 | `请帮我按 msmodeling README 初始化环境，创建 myenv 并安装 requirements.txt。` |
-| 单点仿真参数梳理 | `请帮我梳理 Qwen3-32B 在Atlas A3 系列产品上跑 text_generate 需要补齐哪些参数。` |
+| 单点仿真参数梳理 | `请帮我梳理 Qwen3-32B 在Atlas A3系列产品上跑 text_generate 需要补齐哪些参数。` |
 | 吞吐规划咨询 | `我想比较同一个模型在两种硬件上的部署吞吐规划，应该怎么准备 throughput_optimizer 输入？` |
 | 设备建模入口 | `我要给一块新硬件做 device profile，先帮我确认需要哪些规格。` |
 | 服务化自动寻优部署 | `请帮我安装 msmodeling optix 寻优工具并验证是否可用。` |
-| 寻优参数推荐 | `我在Atlas A3 系列产品上部署 Qwen3-32B，使用 vLLM，目标吞吐优先，帮我推荐寻优参数和 config.toml 配置。` |
+| 寻优参数推荐 | `我在Atlas A3系列产品上部署 Qwen3-32B，使用 vLLM，目标吞吐优先，帮我推荐寻优参数和 config.toml 配置。` |

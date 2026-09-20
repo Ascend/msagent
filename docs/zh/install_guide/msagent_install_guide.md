@@ -172,6 +172,8 @@ msagent --help
 
 当前阶段尚未提供旧项目 `.msagent` 的自动迁移。升级或切换版本时请保留旧目录，不要将删除配置目录作为升级步骤。
 
+升级版本时需要关注版本配套关系，请参见《[版本说明](https://gitcode.com/Ascend/release-management/blob/master/MindStudio/master/release_notes.md)》。
+
 ### 5.1 先确认当前是哪种安装方式
 
 升级、卸载命令随安装方式不同而不同，先自检：

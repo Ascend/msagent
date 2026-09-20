@@ -146,7 +146,7 @@ Safe Mode 下白名单默认批准，黑名单和普通命令逐条确认；Conv
 内置 MCP 服务说明：
 
 - `msprof-mcp`：Ascend Profiling 数据分析服务（本地 stdio，默认启用）。
-- `ascend-doc-mcp`：昇腾社区文档与开源仓库资料查询服务（默认启用）。通过 `msagent-ascend-doc-mcp` 启动器以 `npx` 拉起 `@opencxd/ascend-doc-mcp`，默认查询 Ascend 社区文档（产品/版本/文档目录/检索/开源仓库文件/安装下载）。需要 Node.js（≥22）与 npm/npx，首次启动会从 npm 拉取包；安装脚本已把该包预装到 `~/.msagent/ascend-doc-mcp`，预装成功时启动器直接运行本地副本，运行期无需 npm 且可离线。npm registry 的解析顺序为 `MSAGENT_NPM_REGISTRY` → 本机 npm 自身配置的 registry（`npm config get registry`，含企业下发的 `.npmrc`，内网机器据此自动使用内网源）→ `registry.npmmirror.com` → `mirrors.huaweicloud.com/repository/npm` → `registry.npmjs.org`，逐项探测后选用（内网场景见 [FAQ](faq.md) 第 9 条），`MSAGENT_NPM_REGISTRY_ONLY=1` 可强制只使用显式指定的 registry。该服务不可用时不会影响会话启动，只会使 `ascend-knowledge` 子代理无法执行文档/仓库查询并向主 Agent 说明不可用；也可在会话中用 `/mcp` 关闭该服务。
+- `ascend-doc-mcp`：昇腾社区文档与开源仓库资料查询服务（默认启用）。通过 `msagent-ascend-doc-mcp` 启动器以 `npx` 拉起 `@opencxd/ascend-doc-mcp`，默认查询 Ascend 社区文档（产品/版本/文档目录/检索/开源仓库文件/安装下载）。需要 Node.js（≥22）与 npm/npx，首次启动会从 npm 拉取包；安装脚本已把该包预装到 `~/.msagent/ascend-doc-mcp`，预装成功时启动器直接运行本地副本，运行期无需 npm 且可离线。npm registry 的解析顺序为 `MSAGENT_NPM_REGISTRY` → 本机 npm 自身配置的 registry（`npm config get registry`，含企业下发的 `.npmrc`，内网机器据此自动使用内网源）→ `registry.npmmirror.com` → `mirrors.huaweicloud.com/repository/npm` → `registry.npmjs.org`，逐项探测后选用（内网场景见 [FAQ](../support/faq.md) 第 9 条），`MSAGENT_NPM_REGISTRY_ONLY=1` 可强制只使用显式指定的 registry。该服务不可用时不会影响会话启动，只会使 `ascend-knowledge` 子代理无法执行文档/仓库查询并向主 Agent 说明不可用；也可在会话中用 `/mcp` 关闭该服务。
 - `tavily-mcp`：网络检索服务（默认关闭，配置 `TAVILY_API_KEY` 后可在 `/mcp` 中启用）。
 
 日常使用方式：

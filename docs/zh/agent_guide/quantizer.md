@@ -20,8 +20,8 @@
 
 - 请准备推理运行环境，推荐使用 vllm-ascend 镜像，使用 Docker 安装 vllm-ascend 指导：[vllm-ascend安装](https://docs.vllm.ai/projects/vllm-ascend-cn/zh-cn/latest/installation.html#set-up-using-docker)，推荐在容器内安装 msagent 并使用 Quantizer
 - 请根据模型安装合适的 transformers 版本，特殊说明：如果 msModelSlim 模型量化与推理引擎服务化要求的 transformers 版本不一致，可以将相关信息告知 Agent，让其自行管理使用对应版本。
-- 量化调优需在容器内安装 msModelSlim ；安装指导见 [msModelSlim 安装](https://gitcode.com/Ascend/msmodelslim/blob/master/docs/zh/install_guide/install_guide.md)
-- 调优评测依赖 AISBench 评测服务，安装与使用说明见其 [README](https://github.com/AISBench/benchmark/blob/main/README.md)；测评所需数据集（如 gpqa、aime25 等）须自行准备，可参考 [AISBench 数据集准备指南](https://yh-ais-bench-benchmark.readthedocs.io/zh-cn/latest/base_tutorials/all_params/datasets.html)
+- 量化调优需在容器内安装 msModelSlim；安装指导见 [msModelSlim 安装](https://gitcode.com/Ascend/msmodelslim/blob/master/docs/zh/install_guide/install_guide.md)
+- 调优评测依赖 AISBench 评测服务，安装与使用说明见其 [README](https://github.com/AISBench/benchmark/blob/main/README.md)；评测所需数据集（如 gpqa、aime25 等）须自行准备，可参考 [AISBench 数据集准备指南](https://yh-ais-bench-benchmark.readthedocs.io/zh-cn/latest/base_tutorials/all_params/datasets.html)
 
 ## 4. 推荐使用方式
 
@@ -70,7 +70,7 @@ Quantizer 按以下阶段编排（各阶段经用户确认后进入下一步）�
 | `msmodelslim-model-analysis` | 模型准备 | 适配前分析：实现来源、结构 / MoE / 逐层加载等风险评估，并识别模型类型（LLM / 多模态理解 / 多模态生成） |
 | `msmodelslim-model-adapt` | 模型准备 | 分析通过后：适配模板、注册、`config.ini` 与四步验证；DiT 模型由其多模态生成扩展节承接适配 |
 | `msmodelslim-anti-outlier-adapt` | 模型准备 | 基础适配验证通过后：执行逐算法离群值抑制与最终 logits 门禁 |
-| `quant-tuning-evaluation-generator` | 量化配置调优 | 生成测评配置（Evaluation YAML） |
+| `quant-tuning-evaluation-generator` | 量化配置调优 | 生成评测配置（Evaluation YAML） |
 | `quant-tuning-practice-generator` | 量化配置调优 | 生成 / 调整量化配置（Practice YAML） |
 | `quant-tuning-quantizer` | 量化配置调优 | 依据 Practice YAML 执行模型量化 |
 | `quant-tuning-evaluator` | 量化配置调优 | 对量化模型执行 AISBench 精度评测 |

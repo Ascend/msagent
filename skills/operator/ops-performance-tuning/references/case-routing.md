@@ -41,9 +41,9 @@ PY
 
 | 代际 | 常见设备 | 官方算子仓 `build.sh --soc` | 独立工程常见 `NPU_ARCH` | 关键差异 |
 |---|---|---|---|---|
-| A2 | Atlas A2 系列产品 | `ascend910b` | `dav-2201` | MemBase/高层 API 为主；不要下沉 A5 VF/RegBase 专属路径 |
-| A3 | Atlas A3 系列产品 | `ascend910_93` | 以本机工具链和样例声明为准 | 不硬编码 `dav-*`；从目标仓 CMake 与本机 `--help` 获取 |
-| A5 | Ascend 950PR&950DT 系列产品 | `ascend950` | `dav-3510` | 可重点评估 RegBase/VF、MicroAPI、PipeTimeline/PcSampling |
+| A2 | Atlas A2系列产品 | `ascend910b` | `dav-2201` | MemBase/高层 API 为主；不要下沉 A5 VF/RegBase 专属路径 |
+| A3 | Atlas A3系列产品 | `ascend910_93` | 以本机工具链和样例声明为准 | 不硬编码 `dav-*`；从目标仓 CMake 与本机 `--help` 获取 |
+| A5 | Ascend 950PR&950DT系列产品 | `ascend950` | `dav-3510` | 可重点评估 RegBase/VF、MicroAPI、PipeTimeline/PcSampling |
 
 ## 2. 编译路径速查
 
