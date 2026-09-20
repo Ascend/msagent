@@ -157,7 +157,7 @@ bash scripts/build.sh --debug 00_basic_matmul -DCATLASS_ARCH=<catlass_arch> [--c
 msdebug ./output/bin/00_basic_matmul -- 256 512 1024 0    # 参数 m n k deviceId
 ```
 
-> 950 系列样例（如 `43_ascend950_basic_matmul`）需 `-DCATLASS_ARCH=3510`；部分样例仅支持特定 arch（见 examples/CMakeLists.txt 的 2201/3510 分组）。
+> 950系列样例（如 `43_ascend950_basic_matmul`）需 `-DCATLASS_ARCH=3510`；部分样例仅支持特定 arch（见 examples/CMakeLists.txt 的 2201/3510 分组）。
 > 若所用 catlass 版本较旧、`scripts/build.sh` 尚无 `--debug` 开关，可退回手动方式：在 `examples/CMakeLists.txt` 的 ASC 编译选项处追加 `add_compile_options("SHELL:$<$<COMPILE_LANGUAGE:ASC>:-O0 -g>")`，调试完成后删除该行并恢复文件原始状态。
 
 ## 6. cann-samples 仓
@@ -205,8 +205,8 @@ python3 -c "import acl; print(acl.get_soc_name())"
 
 | NPU Name | 产品系列 | `--soc`<br>(ops-transformer/nn/math/cv) | `CMAKE_ASC_ARCHITECTURES`<br>(asc-devkit) | `CATLASS_ARCH`<br>(catlass) | `NPU_ARCH`<br>(cann-samples) |
 |----------|---------|---------------------|------------------|----------------------|------------------|
-| Ascend910BX | Atlas A2 训练/推理 | `ascend910b` | `dav-2201` | `2201` | `dav-2201` |
-| Ascend910_93XX | Atlas A3 训练/推理 | `ascend910_93` | `dav-2201` | `2201` | `dav-2201` |
+| Ascend910BX | Atlas A2训练/推理 | `ascend910b` | `dav-2201` | `2201` | `dav-2201` |
+| Ascend910_93XX | Atlas A3训练/推理 | `ascend910_93` | `dav-2201` | `2201` | `dav-2201` |
 | Ascend950PR/DT | 950系列 | `ascend950` | `dav-3510` | `3510` | `dav-3510` |
 
 > - 各仓参数名与取值格式不同（`ascend910b` vs `dav-2201` vs `2201`），严格按表头对应仓取用。

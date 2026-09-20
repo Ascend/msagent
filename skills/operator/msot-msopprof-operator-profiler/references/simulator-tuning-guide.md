@@ -132,8 +132,8 @@ msprof op simulator --soc-version=Ascend910B4 --dump=on --output=./output_sim ./
 说明：
 
 - 默认 `off`
-- A2/A3 系列下可用于控制是否保留 dump
-- 对部分昇腾推理系列产品，文档说明该参数不生效，dump 会按正常流程落盘
+- A2/A3系列下可用于控制是否保留 dump
+- 对部分昇腾的推理系列产品，文档说明该参数不生效，dump 会按正常流程落盘
 - 仅适用于单进程场景
 
 ## 5. 指标与视图

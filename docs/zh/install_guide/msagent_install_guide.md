@@ -31,13 +31,13 @@
 **Linux / macOS / WSL：**
 
 ```shell
-curl -LsSf https://raw.gitcode.com/Ascend/msagent/raw/master/scripts/install.sh | bash
+curl -LsSf https://raw.gitcode.com/Ascend/msagent/raw/26.2.0/scripts/install.sh | bash
 ```
 
 **Windows（PowerShell 5.1 及以上）：**
 
 ```powershell
-irm https://raw.gitcode.com/Ascend/msagent/raw/master/scripts/install.ps1 | iex
+irm https://raw.gitcode.com/Ascend/msagent/raw/26.2.0/scripts/install.ps1 | iex
 ```
 
 执行如下命令提示msAgent版本即安装成功。
@@ -91,8 +91,8 @@ msagent --version
 
 源码编译统一使用 MindStudio 标准构建环境。
 
-- 日常开发或使用已发布镜像，请参考《[MindStudio工具开发环境安装指导](https://gitcode.com/Ascend/msot/blob/master/docs/zh/common/dev_env_setup.md)》。
-- 需要从基础操作系统复现环境、执行源码构建验证或单元测试验证时，必须参考《[MindStudio统一构建镜像制作指南](https://gitcode.com/Ascend/msot/blob/master/docs/zh/common/docker_image_build_guide.md)》，从openEuler基础镜像现场构建环境镜像。
+- 日常开发或使用已发布镜像，请参考《[MindStudio工具开发环境安装指导](https://gitcode.com/Ascend/msot/blob/26.2.0/docs/zh/common/dev_env_setup.md)》。
+- 需要从基础操作系统复现环境、执行源码构建验证或单元测试验证时，必须参考《[MindStudio统一构建镜像制作指南](https://gitcode.com/Ascend/msot/blob/26.2.0/docs/zh/common/docker_image_build_guide.md)》，从openEuler基础镜像现场构建环境镜像。
 
 本文档后续的源码编译和单元测试命令，均在上述指定镜像容器或现场构建的环境镜像的容器中执行，CANN 软件包版本、GCC 版本和 Python 版本以统一镜像制作指南为准，本仓库不重复维护。
 
@@ -104,7 +104,7 @@ msagent --version
 
    ```bash
    cd ~
-   git clone https://gitcode.com/Ascend/msagent.git -b master
+   git clone https://gitcode.com/Ascend/msagent.git -b 26.2.0
    ```
 
 2. 保持在 `ctr_in.py` 打开的同一个交互式容器 Shell 中，在仓库根目录执行以下命令，自动完成依赖下载与构建：
@@ -172,6 +172,8 @@ msagent --help
 
 当前阶段尚未提供旧项目 `.msagent` 的自动迁移。升级或切换版本时请保留旧目录，不要将删除配置目录作为升级步骤。
 
+升级版本时需要关注版本配套关系，请参见《[版本说明](https://gitcode.com/Ascend/release-management/blob/master/MindStudio/26.2.0/release_notes.md)》。
+
 ### 5.1 先确认当前是哪种安装方式
 
 升级、卸载命令随安装方式不同而不同，先自检：
@@ -195,7 +197,7 @@ pip show mindstudio-agent   # 有输出 → 该 pip 环境还装有一份（源�
 一键安装的升级命令：
 
 ```shell
-curl -LsSf https://raw.gitcode.com/Ascend/msagent/raw/master/scripts/install.sh | bash
+curl -LsSf https://raw.gitcode.com/Ascend/msagent/raw/26.2.0/scripts/install.sh | bash
 ```
 
 > uv 工具方式与 pip 方式互不相通，两种都装过时 PATH 上只有一个生效（安装器会提示遮蔽），按 5.1 的 `command -v msagent` 确认后再卸载。

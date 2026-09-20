@@ -1,6 +1,6 @@
 # 免责声明
 
-MindStudio-Agent（`msagent`）及其文档、内置 Skills 与 Agent 输出，均按"现状"提供，仅供开发、调试与调优参考，不构成任何明示或暗示的保证或承诺。
+MindStudio-Agent（`msagent`）及其文档、内置 Skills 与 Agent 输出，均按“现状”提供，仅供开发、调试与调优参考，不构成任何明示或暗示的保证或承诺。
 
 使用本工具时，请注意：
 

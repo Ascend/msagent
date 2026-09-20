@@ -18,7 +18,7 @@ msAgent 中的 Skills 实现遵循 Agent Skills 的通用约定，能在不同 a
 适用于 Trae、opencode 等支持 `npx skills` 工作流的 agent。一行命令即可安装：
 
 ```bash
-git clone https://gitcode.com/Ascend/msagent.git -b master
+git clone https://gitcode.com/Ascend/msagent.git -b 26.2.0
 cd msagent/skills
 
 # 安装单个 Skill
@@ -36,7 +36,7 @@ npx skills add . --all -a trae
 不依赖 `npx`，适用于任意 agent。克隆仓库后将目标 Skill 目录拷贝到 agent 的 skills 扫描路径下：
 
 ```bash
-git clone https://gitcode.com/Ascend/msagent.git -b master
+git clone https://gitcode.com/Ascend/msagent.git -b 26.2.0
 
 # opencode
 cp -r msagent/skills/profiler/ascend-profiler-db-explorer ~/.config/opencode/skills/
@@ -53,7 +53,7 @@ cp -r msagent/skills/profiler/ascend-profiler-db-explorer ~/.claude/skills/
 
 | 服务名称 | 领域 | 仓库                                                      |
 |----------|------|---------------------------------------------------------|
-| `msprof-mcp` | Ascend Profiling 数据分析 | [link](https://gitcode.com/kali20gakki1/msprof_mcp.git) |
+| `msprof-mcp` | Ascend Profiling 数据分析 | [link](https://pypi.org/project/msprof-mcp/) |
 
 ### 3.1 msprof-mcp
 

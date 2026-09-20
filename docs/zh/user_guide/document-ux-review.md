@@ -36,7 +36,7 @@
 **示例 1：`msmonitor` 实战示例**
 
 ```text
-请帮我体验并审查这个仓库的文档上手体验：https://gitcode.com/Ascend/msmonitor 。
+请帮我体验并审查这个仓库的文档上手体验：https://gitcode.com/Ascend/msmonitor。
 
 本机环境：
 - Ubuntu 20.04
