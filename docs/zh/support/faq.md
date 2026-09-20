@@ -57,7 +57,7 @@
 - 当前 Agent 的 `skills.patterns` 是否允许该 Skill
 - 是否被更高优先级目录中的同名 Skill 覆盖
 
-加载自定义 Skill，可参考[添加自定义 Skill](../user_guide/configuration-and-extension.md#9-添加自定义-skill)
+加载自定义 Skill，可参考[添加自定义 Skill](../user_guide/configuration-and-extension.md#9-添加自定义-skill)。
 
 ## 4. 运行日志在哪里看？
 
@@ -105,10 +105,10 @@ export COLORTERM=truecolor
 
 ```shell
 # Linux / macOS / WSL
-curl -LsSf https://raw.gitcode.com/Ascend/msagent/raw/master/scripts/install.sh | bash
+curl -LsSf https://raw.gitcode.com/Ascend/msagent/raw/26.2.0/scripts/install.sh | bash
 
 # Windows（PowerShell 5.1+）
-irm https://raw.gitcode.com/Ascend/msagent/raw/master/scripts/install.ps1 | iex
+irm https://raw.gitcode.com/Ascend/msagent/raw/26.2.0/scripts/install.ps1 | iex
 ```
 
 常见报错对照：

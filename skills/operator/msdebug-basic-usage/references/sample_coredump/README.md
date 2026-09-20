@@ -11,8 +11,8 @@
 ## 支持的产品范围
 
 - Ascend 950PR/Ascend 950DT
-- Atlas A3 训练系列产品/Atlas A3 推理系列产品
-- Atlas A2 训练系列产品/Atlas A2 推理系列产品
+- Atlas A3训练系列产品/Atlas A3推理系列产品
+- Atlas A2训练系列产品/Atlas A2推理系列产品
 
 ## 目录结构
 
