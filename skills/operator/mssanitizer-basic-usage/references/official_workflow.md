@@ -20,18 +20,18 @@
 
 ### 2.1 编译选项适配和重编译部署
 
-1. ops-transformer 仓的 build.sh 已内置 bisheng 编译器标志传递机制，无需修改 CMakeLists.txt。编译时通过 `--bisheng_flags=sanitizer,ccec_g` 参数即可注入 msSanitizer 检测选项（`-sanitizer`）和调试信息（`-g`）。
+1. ops-transformer 仓的 build.sh 已内置检测桩注入机制，无需修改 CMakeLists.txt。编译时通过 `--op_debug_config sanitizer` 即可完成 msSanitizer 检测插桩。
 
 2. 进入 ops-transformer 根目录，执行以下命令编译算子：
 
 ```shell
-bash build.sh --pkg --soc=<soc_version> --ops=<算子名> --bisheng_flags=sanitizer,ccec_g -j<number_of_threads>
+bash build.sh --pkg --soc=<soc_version> --ops=<算子名> --op_debug_config sanitizer -j<number_of_threads>
 ```
 
 > `--soc` 按平台（Atlas A2/A3/950）取值，见[架构类型参数获取方式](#9-架构类型参数获取方式)。
 > 算子名参考CMakeLists.txt中指定的编译结果名称。
 > `-j` 参数指定编译线程数可以加速编译过程。为保证加编译，需要通过 `nproc` 命令获取 CPU 核心数，然后设置为最大值的一半。
-> `--bisheng_flags` 参数说明：`sanitizer` 注入 msSanitizer 检测桩，`ccec_g` 生成调试信息，多个标志用逗号分隔。
+> `--op_debug_config sanitizer` 参数说明：`sanitizer` 注入 msSanitizer 检测桩（`--cce-enable-sanitizer`），并生成告警定位所需的「文件:行号」调用栈信息。
 
 若提示如下信息，说明编译成功:
 
@@ -60,7 +60,7 @@ SUCCESS
 export LD_LIBRARY_PATH=${ASCEND_HOME_PATH}/opp/vendors/custom_transformer/op_api/lib/:${LD_LIBRARY_PATH}
 ```
 
-> 若 CANN 版本 **≤ 9.1.0**（9.1.0 及之前，`--bisheng_flags=sanitizer,ccec_g` 注入检测桩失效），需直接修改 CANN 包内编译脚本注入 `--cce-enable-sanitizer -g`，版本判断与操作见文末**第 11 节备注**。
+> 若 CANN 版本 **≤ 9.1.0**（9.1.0 及之前，`--op_debug_config sanitizer` 注入检测桩失效），需直接修改 CANN 包内编译脚本注入 `--cce-enable-sanitizer -g`，版本判断与操作见文末**第 11 节备注**。
 
 ### 2.2 运行检测
 
@@ -90,11 +90,11 @@ bash build.sh --pkg --soc=<soc_version> --ops=<算子名> --mssanitizer -j<numbe
 
 > `--mssanitizer` 等价于自动添加 `-g --cce-enable-sanitizer` 到 kernel 编译选项。`--soc` 按平台（Atlas A2/A3/950）取值，见[架构类型参数获取方式](#10-架构类型参数获取方式)。
 
-**方式二：使用 `--bisheng_flags=sanitizer,ccec_g` 灵活指定**（用法与 [ops-transformer仓](#2-ops-transformer仓) 相同；与 `--mssanitizer` 互斥，不能同时使用）。
+**方式二：使用 `--bisheng_flags=sanitizer` 灵活指定**（用法与 [ops-transformer仓](#2-ops-transformer仓) 相同；与 `--mssanitizer` 互斥，不能同时使用）。
 
 编译成功提示与安装部署步骤与 [ops-transformer仓](#2-ops-transformer仓) 完全一致，参见该节步骤 3~4。
 
-> 若 CANN 版本 **≤ 9.1.0**（9.1.0 及之前，`--mssanitizer` / `--bisheng_flags=sanitizer,ccec_g` 注入检测桩失效），需直接修改 CANN 包内编译脚本注入 `--cce-enable-sanitizer -g`，版本判断与操作见文末**第 11 节备注**。
+> 若 CANN 版本 **≤ 9.1.0**（9.1.0 及之前，`--mssanitizer` / `--bisheng_flags=sanitizer` 注入检测桩失效），需直接修改 CANN 包内编译脚本注入 `--cce-enable-sanitizer -g`，版本判断与操作见文末**第 11 节备注**。
 
 ### 3.2 运行检测
 
@@ -399,7 +399,7 @@ ops 系列仓（ops-transformer / ops-nn / ops-math / ops-cv）中 **GE 图模�
 
 步骤：
 
-1. **编译安装**：与普通算子一致（ops-nn/math/cv 用 `--mssanitizer`，ops-transformer 用 `--bisheng_flags=sanitizer,ccec_g`），编译后安装 run 包并 `export LD_LIBRARY_PATH`。
+1. **编译安装**：与普通算子一致（ops-nn/math/cv 用 `--mssanitizer`，ops-transformer 用 `--op_debug_config sanitizer`），编译后安装 run 包并 `export LD_LIBRARY_PATH`。
 2. **（可选）改 deviceId**：graph 示例源文件（该仓 examples 下对应算子的 `test_geir_<算子名>.cpp`）中 `deviceId = 0;` 若指向被占用的卡，改为空闲卡号；部分仓在特定 arch 下 `build.sh --run_example` 只查示例的 `arch35` 子目录（若存在）。
 3. **生成并验证 graph 示例**：`bash build.sh --run_example <算子名> graph --soc=<soc>`。出现类似 `Run test_geir_<算子名> success.` 即单独运行成功，并生成 `build/test_geir_<算子名>`；失败则按“单独运行失败”处理，不进入检测。
 4. **四类检测**：**进入构建产物目录**（如 `<ops仓库>/build`）后直接对生成的二进制运行，每个命令自动跑两遍（dump → 用 dump 检测）：
@@ -420,7 +420,7 @@ ops 系列仓（ops-transformer / ops-nn / ops-math / ops-cv）中 **GE 图模�
 
 ## 11. 备注：老 CANN（CANN ≤ 9.1.0）下 ops-xx 仓检测编译选项的注入
 
-**适用**：CANN 版本 **≤ 9.1.0（9.1.0 及之前）** 时，ops 系列仓（ops-transformer / ops-nn / ops-math / ops-cv）`build.sh` 的 `--mssanitizer` / `--bisheng_flags=sanitizer,ccec_g` **无法**把检测桩选项注入 kernel 编译（旧工具链未透传该参数），需**直接修改 CANN 安装包内编译脚本**完成注入；CANN 9.1.0 之后（> 9.1.0）无需此步。
+**适用**：CANN 版本 **≤ 9.1.0（9.1.0 及之前）** 时，ops 系列仓（ops-transformer / ops-nn / ops-math / ops-cv）`build.sh` 的 `--mssanitizer` / `--bisheng_flags=sanitizer` **无法**把检测桩选项注入 kernel 编译（旧工具链未透传该参数），需**直接修改 CANN 安装包内编译脚本**完成注入；CANN 9.1.0 之后（> 9.1.0）无需此步。
 
 **0. 判断 CANN 版本**：查看 CANN 安装目录下 `cann` 软链接实际指向的目录名（命名形如 `cann-<版本>`），从目录名读取版本号：
 
