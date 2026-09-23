@@ -15,6 +15,7 @@
 - 集群快慢卡、慢节点与负载不均衡分析
 - 通信瓶颈、算子热点、Host 下发与调度问题定位
 - 基于 DB / CSV / Trace 等交付件做结构化分析与导出
+- 基于 **DB格式** 交付件做RL、推理等阶段耗时拆解
 - Ascend 官方文档 / 社区资料 / 接口与工具语义 / 示例与开源代码的事实核验（委派 `ascend-knowledge` 子代理取证，返回带来源与版本/分支的证据）
 
 ## 3. 推荐使用方式
@@ -26,10 +27,11 @@
 
 ## 4. 典型效果展示
 
-| 场景 | 示例提示词 | 效果展示 |
-|---|---|---|
-| MFU 计算 | `请基于 path/to/kernel_details.csv 计算 matmul 的 MFU（10B3），并说明各项计算依据。` | <img src="../figures/kernel-details-mfu-file.png" alt="MFU 计算示例" width="800"> |
-| 快慢卡诊断 | `请分析 /path/to/cluster_profiling/ 中是否存在快慢卡问题，定位异常 rank，并给出可能原因。` | <img src="../figures/slow-rank-detect.png" alt="快慢卡诊断示例" width="800"> |
+| 场景 | 示例提示词 | 效果展示                                                                            |
+|---|---|-------------------------------------------------------------------------------------|
+| MFU 计算 | `请基于 path/to/kernel_details.csv 计算 matmul 的 MFU（10B3），并说明各项计算依据。` | <img src="../figures/kernel-details-mfu-file.png" alt="MFU 计算示例" width="800">   |
+| 快慢卡诊断 | `请分析 /path/to/cluster_profiling/ 中是否存在快慢卡问题，定位异常 rank，并给出可能原因。` | <img src="../figures/slow-rank-detect.png" alt="快慢卡诊断示例" width="800">        |
 | profiling 数据检查 | `请分析 /path/to/xxx_ascend_pt/ 数据是否采集正常。` | <img src="../figures/profiler-data-check.jpg" alt="数据完整性验证示例" width="800"> |
-| msprof 工具使用类咨询 | `msprof 怎么编译出 run 包？` | <img src="../figures/msprof-build.jpg" alt="工具咨询示例" width="800"> |
-| DB 自定义内容转 CSV | `基于 ascend_pytorch_profiler_0.db，帮我提取各个算子类型的总耗时并按降序输出到 csv。` | <img src="../figures/db-export.png" alt="数据导出示例" width="800"> |
+| msprof 工具使用类咨询 | `msprof 怎么编译出 run 包？` | <img src="../figures/msprof-build.jpg" alt="工具咨询示例" width="800">              |
+| DB 自定义内容转 CSV | `基于 ascend_pytorch_profiler_0.db，帮我提取各个算子类型的总耗时并按降序输出到 csv。` | <img src="../figures/db-export.png" alt="数据导出示例" width="800">                 |
+| VERL强化学习耗时拆解 | `基于ascend_pytorch_profiler_0.db，帮我分析RL各阶段耗时，并输出拆解报告` | <img src="../figures/profiling_breakdown.png" alt="耗时拆解示例" width="800">       |
